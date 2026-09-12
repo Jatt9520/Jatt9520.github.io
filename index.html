@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="light">
+  <title>个人网站</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- 固定标识：页面右上角悬浮（内容由 config.js 生成） -->
+  <div class="fixed-badge" id="fixed-badge"></div>
+
+  <!-- ================= 整体布局 ================= -->
+  <div class="layout">
+
+    <!-- 左侧联系方式栏（内容由 config.js 生成） -->
+    <aside class="contact" id="contact"></aside>
+
+    <div class="main-col">
+
+      <!-- ===== 视图一：主页（大外框 + 双导航入口） ===== -->
+      <main class="frame view active" id="view-home">
+
+        <section class="top-area">
+
+          <!-- 左半区：像素画板 -->
+          <div class="canvas-box">
+            <!-- 画板标题 -->
+            <div class="canvas-title" id="canvas-title"></div>
+            <!-- 画板角落实时额度 -->
+            <div class="canvas-corner" id="canvas-corner"></div>
+
+            <!-- 可滚动画布容器：进入后可放大查看 -->
+            <div class="canvas-scroll" id="canvas-scroll">
+              <!-- 500×500 逻辑网格，尺寸由 main.js 设置 -->
+              <canvas id="pixel-canvas"></canvas>
+            </div>
+
+            <!-- 激活按钮：点击后开启像素放置 -->
+            <button class="canvas-enter" id="canvas-enter">进入</button>
+
+            <!-- 画板工具区：取色器 + 缩放工具栏 -->
+            <div class="canvas-tools">
+              <div class="palette">
+                <label class="palette-label" for="color-picker">取色</label>
+                <input type="color" id="color-picker" value="#4a90d9">
+              </div>
+              <div class="zoom-tools">
+                <button class="tool-btn" id="zoom-out">缩小</button>
+                <button class="tool-btn" id="zoom-in">放大</button>
+                <button class="tool-btn" id="zoom-fit">适配</button>
+                <span class="zoom-level" id="zoom-level">1x</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 右半区：双导航入口（点击进入对应视图） -->
+          <nav class="dual-nav">
+            <a class="nav-entry" data-entry="creation">创作初衷</a>
+            <a class="nav-entry" data-entry="projects">我的项目</a>
+          </nav>
+
+        </section>
+      </main>
+
+      <!-- ===== 视图二：创作初衷（点击入口后进入） ===== -->
+      <section class="content-section view" id="view-creation">
+        <a class="back-link" data-back="view-home">← 返回主页</a>
+        <h2 class="section-title" id="creation-title">创作初衷</h2>
+        <p class="section-text" id="creation-text"></p>
+
+        <!-- 联系方式（由 config.js 生成） -->
+        <div class="creation-contact" id="creation-contact"></div>
+      </section>
+
+      <!-- ===== 视图三：我的项目（点击入口后进入） ===== -->
+      <section class="content-section view" id="view-projects">
+        <a class="back-link" data-back="view-home">← 返回主页</a>
+        <h2 class="section-title" id="projects-title">我的项目</h2>
+        <div class="project-cards" id="project-cards"></div>
+        <p class="project-fallback" id="project-fallback" hidden></p>
+      </section>
+
+    </div>
+  </div>
+
+  <!-- ============ 入场弹窗 ============ -->
+  <div class="modal" id="modal">
+    <div class="modal-card">
+      <h1 class="modal-title" id="modal-title"></h1>
+      <p class="modal-text" id="modal-text"></p>
+      <button class="modal-btn" id="modal-btn"></button>
+    </div>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script src="js/main.js"></script>
+
+  <!--
+    ============================================================
+    GitHub Pages 部署步骤
+    ------------------------------------------------------------
+    1. 在 GitHub 新建仓库，仓库名：Jatt9520.github.io
+       （用户名.github.io，请换成你自己的 GitHub 用户名）
+    2. 在本目录执行以下命令把全部文件推上去：
+         git init
+         git add .
+         git commit -m "init: personal card site"
+         git branch -M main
+         git remote add origin https://github.com/Jatt9520/Jatt9520.github.io.git
+         git push -u origin main
+    3. 访问 https://Jatt9520.github.io 即可打开网站
+    4. 之后每次 push 修改，GitHub Pages 会自动重新发布（约 1~2 分钟生效）
+    ============================================================
+  -->
+</body>
+</html>
