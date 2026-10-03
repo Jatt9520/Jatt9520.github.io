@@ -102,11 +102,11 @@ body {
   isolation: isolate;
 }
 
-/* 漂浮玻璃珠：真折射透镜（canvas 负责边缘扭曲与高光，这里只留薄薄一层
-   磨砂柔化折射画面；中心几乎全透，背景透过即见弯折） */
+/* 漂浮玻璃珠：真折射透镜（canvas 逐帧绘制弯折画面，这里只做微弱柔化，
+   保证折射纹理清晰透出） */
 .glass-orb {
-  -webkit-backdrop-filter: blur(2.5px) saturate(185%) brightness(1.06);
-  backdrop-filter: blur(2.5px) saturate(185%) brightness(1.06);
+  -webkit-backdrop-filter: blur(1px) saturate(180%) brightness(1.05);
+  backdrop-filter: blur(1px) saturate(180%) brightness(1.05);
 }
 
 /* 折射描边：渐变环模拟玻璃边缘的弯折高光 */
@@ -350,10 +350,12 @@ body.dark .theme-toggle .icon-sun { display: block; }
 .hero-bg img { transition: opacity 0.9s var(--out); }
 .hero-bg img.off { opacity: 0; }
 
-/* 动态层：海面碎金 + 浮尘（与照片同步渐隐，随天幕一起收尾） */
+/* 动态层：海面碎金 + 浮尘 + 透镜折射（与照片同步渐隐，随天幕一起收尾） */
 .hero-fx {
   position: absolute;
   inset: 0;
+  width: 100%;    /* canvas 为 replaced 元素：inset 不拉伸，必须显式给尺寸 */
+  height: 100%;
   z-index: 2;
   pointer-events: none;
   -webkit-mask-image: linear-gradient(180deg, #000 85%, rgba(0,0,0,0.55) 93%, transparent 100%);
@@ -376,7 +378,7 @@ body.dark .theme-toggle .icon-sun { display: block; }
    + 边缘聚光 + 内壁阴影，五层叠加构成玻璃体积感 */
 .orb {
   --orb-bg:
-    radial-gradient(circle at 30% 26%, rgba(255,255,255,.5), rgba(255,255,255,.07) 30%, rgba(255,255,255,0) 52%),
+    radial-gradient(circle at 30% 26%, rgba(255,255,255,.42), rgba(255,255,255,.05) 22%, rgba(255,255,255,0) 42%),
     radial-gradient(circle at 74% 82%, rgba(255,255,255,.16), rgba(255,255,255,0) 38%),
     radial-gradient(circle at 50% 50%, rgba(255,255,255,0) 60%, rgba(255,255,255,.07) 82%, rgba(255,255,255,.28) 100%);
   position: absolute;
@@ -557,9 +559,25 @@ body.dark .kicker { color: #7fc4c9; }
   inset: 0;
   z-index: -3;
   pointer-events: none;
+  overflow: hidden;
   background: linear-gradient(168deg, var(--bg-a), var(--flow-mid) 30%, var(--bg-b) 58%, var(--flow-mid) 82%, var(--bg-a));
   background-size: 130% 240%;
-  animation: bgShift2 22s ease-in-out infinite;
+}
+/* 流动感改用合成层光带漂移（GPU 合成，零重绘） */
+.page-flow::after {
+  content: '';
+  position: absolute;
+  inset: -30%;
+  background: linear-gradient(115deg,
+    transparent 30%, rgba(255, 255, 255, 0.055) 45%, transparent 58%,
+    rgba(255, 255, 255, 0.045) 72%, transparent 86%);
+  animation: flowDrift 26s ease-in-out infinite alternate;
+  will-change: transform;
+}
+body.dark .page-flow::after {
+  background: linear-gradient(115deg,
+    transparent 30%, rgba(255, 214, 150, 0.05) 45%, transparent 58%,
+    rgba(180, 220, 230, 0.04) 72%, transparent 86%);
 }
 .page-aurora { position: fixed; inset: 0; z-index: -2; pointer-events: none; overflow: hidden; }
 .page-aurora i {
@@ -839,11 +857,10 @@ body.dark .ghost-btn:hover { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.3
   from { transform: translate(-3vmax, -2vmax) scale(1); }
   to   { transform: translate(7vmax, 5vmax) scale(1.22); }
 }
-/* 流动底色：整片渐变缓慢流转 */
-@keyframes bgShift2 {
-  from { background-position: 0% 0%; }
-  50%  { background-position: 100% 100%; }
-  to   { background-position: 0% 0%; }
+/* 流动光带：合成层平移（替代 background-position 重绘动画） */
+@keyframes flowDrift {
+  from { transform: translate3d(-6%, -4%, 0); }
+  to   { transform: translate3d(6%, 4%, 0); }
 }
 @keyframes rise {
   from { opacity: 0; transform: translateY(26px); }
@@ -870,7 +887,7 @@ body.dark .ghost-btn:hover { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.3
 /* ---------- ⑭ 无障碍：减弱动态 ---------- */
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; scroll-snap-type: y proximity; }
-  .hero-bg img, .orb, .page-aurora i, .page-flow, .scroll-hint svg { animation: none; }
+  .hero-bg img, .orb, .page-aurora i, .page-flow::after, .scroll-hint svg { animation: none; }
   .hero-fx { display: none; }
   .reveal, .identity, .scroll-hint {
     animation: none;
@@ -915,5 +932,16 @@ body.dark .ghost-btn:hover { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.3
   .hero-veil, .hero-fx, .hero-bg {
     -webkit-mask-image: linear-gradient(180deg, #000 88%, rgba(0,0,0,0.5) 94%, transparent 100%);
     mask-image: linear-gradient(180deg, #000 88%, rgba(0,0,0,0.5) 94%, transparent 100%);
+  }
+
+  /* 移动端背板模糊降幅：柔和渐变背景下观感几乎不变，滚动重算省约 40% */
+  .glass-panel, .glass-chip, .glass-control, .glass-modal {
+    -webkit-backdrop-filter: blur(16px) saturate(165%);
+    backdrop-filter: blur(16px) saturate(165%);
+  }
+  /* 珠子：折射已由 canvas 逐帧绘制，去掉背板模糊（最贵的一项） */
+  .glass-orb {
+    -webkit-backdrop-filter: saturate(170%) brightness(1.06);
+    backdrop-filter: saturate(170%) brightness(1.06);
   }
 }

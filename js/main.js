@@ -306,24 +306,28 @@
     let mouseVX = 0, mouseVY = 0;
     window.addEventListener('pointermove', (e) => { mouseVX = e.clientX; mouseVY = e.clientY; }, { passive: true });
 
-    if (REDUCED) return;
+    if (REDUCED || !FINE_POINTER) return;   // 触屏不做指针视差（省一条常驻 rAF）
 
     const R = 110;   // 磁性吸附半径
+    let lastSx = 99, lastSy = 99;   // 脏检查：无变化不写 DOM
     function frame() {
       // 视差（弹簧插值到目标）
       pointer.sx = lerp(pointer.sx, pointer.has ? pointer.x : 0, 0.055);
       pointer.sy = lerp(pointer.sy, pointer.has ? pointer.y : 0, 0.055);
-      orbs.forEach((o) => {
-        o.el.style.transform =
-          'translate3d(' + (pointer.sx * o.depth * 620).toFixed(2) + 'px,'
-                        + (pointer.sy * o.depth * 460).toFixed(2) + 'px,0)';
-      });
-      // 背景反向微移（与内层 img 的运镜动画分层叠加）
-      const heroBg = document.querySelector('.hero-bg');
-      if (heroBg) {
-        heroBg.style.transform =
-          'scale(1.045) translate3d(' + (pointer.sx * -12).toFixed(2) + 'px,'
-                                       + (pointer.sy * -9).toFixed(2) + 'px,0)';
+      if (Math.abs(pointer.sx - lastSx) > 0.0004 || Math.abs(pointer.sy - lastSy) > 0.0004) {
+        lastSx = pointer.sx; lastSy = pointer.sy;
+        orbs.forEach((o) => {
+          o.el.style.transform =
+            'translate3d(' + (pointer.sx * o.depth * 620).toFixed(2) + 'px,'
+                          + (pointer.sy * o.depth * 460).toFixed(2) + 'px,0)';
+        });
+        // 背景反向微移（与内层 img 的运镜动画分层叠加）
+        const heroBg = document.querySelector('.hero-bg');
+        if (heroBg) {
+          heroBg.style.transform =
+            'scale(1.045) translate3d(' + (pointer.sx * -12).toFixed(2) + 'px,'
+                                         + (pointer.sy * -9).toFixed(2) + 'px,0)';
+        }
       }
 
       // 3D 倾斜 + 追光（首次介入时收掉 CSS 的 transform 过渡，避免双重平滑）
@@ -409,7 +413,8 @@
     let W = 0, H = 0, horizonY = 0, sunX = 0;
 
     function resize() {
-      const dpr = Math.min(2, window.devicePixelRatio || 1);
+      // 手机 DPR 封顶 1（画布分辨率降 4~9 倍），桌面封顶 2
+      const dpr = window.innerWidth < 760 ? 1.5 : Math.min(2, window.devicePixelRatio || 1);
       W = canvas.clientWidth; H = canvas.clientHeight;
       canvas.width = W * dpr; canvas.height = H * dpr;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -425,7 +430,7 @@
     const glints = [], dust = [];
     function seed() {
       glints.length = 0;
-      const n = Math.round(clamp(W / 22, 24, 52));   // 克制的碎金密度
+      const n = Math.round(clamp(W / 24, 20, 48));   // 碎金密度
       for (let i = 0; i < n; i++) {
         const nearSun = Math.random() < 0.45;
         const x = nearSun ? sunX + (Math.random() - 0.5) * W * 0.34 : Math.random() * W;
@@ -462,15 +467,25 @@
     /** 透镜折射：以玻璃珠区域为透镜，切片位移重绘背景
      *  边缘画面被拉开弯折（倍率向圆心递减），叠加色散亮边、
      *  内壁厚度阴影与左上镜面高光 —— OriginOS 透镜观感。 */
-    function drawLens() {
+    const lens = { rect: false, ts: 0, orb: null, canvas: null };
+    // 滚动/视口变化时让 rect 缓存立即失效（静止时 150ms 缓存省强制布局）
+    window.addEventListener('scroll', () => { lens.ts = 0; }, { passive: true });
+    function drawLens(now) {
       if (!orbEl || !document.body.classList.contains('glass-enabled')) return;
       const src = videoOn() ? videoEl : img;
       const nw = src.videoWidth || src.naturalWidth;
       const nh = src.videoHeight || src.naturalHeight;
       if (!nw || !nh) return;
 
-      const r = orbEl.getBoundingClientRect();
-      const cr = canvas.getBoundingClientRect();
+      // rect 缓存 150ms（珠子移动缓慢，避免每帧强制同步布局）
+      const nowMs = now || performance.now();
+      if (!lens.rect || nowMs - lens.ts > 150) {
+        lens.orb = orbEl.getBoundingClientRect();
+        lens.canvas = canvas.getBoundingClientRect();
+        lens.ts = nowMs;
+      }
+      const r = lens.orb;
+      const cr = lens.canvas;
       const cx = r.left + r.width / 2 - cr.left;
       const cy = r.top + r.height / 2 - cr.top;
       const rad = r.width / 2;
@@ -487,7 +502,7 @@
       ctx.clip();
 
       // 横向切片位移：每条切片按到圆心的距离决定放大率
-      const strips = W < 760 ? 20 : 30;   // 小屏降低折射切片开销
+      const strips = W < 760 ? 16 : 30;   // 小屏 16 条折射切片
       for (let i = 0; i < strips; i++) {
         const ty = (i + 0.5) / strips * 2 - 1;
         const chord = Math.sqrt(Math.max(0, 1 - ty * ty));
@@ -510,25 +525,16 @@
       ctx.strokeStyle = 'rgba(140,210,255,0.22)';
       ctx.beginPath(); ctx.arc(cx - 1.4, cy - 1, rad - 1.2, 0, Math.PI * 2); ctx.stroke();
 
-      // 玻璃厚度：右下内壁阴影
-      const gd = ctx.createRadialGradient(cx - rad * 0.32, cy - rad * 0.36, rad * 0.16, cx, cy, rad);
-      gd.addColorStop(0, 'rgba(8,32,40,0)');
-      gd.addColorStop(1, 'rgba(8,32,40,0.24)');
-      ctx.fillStyle = gd;
-      ctx.fillRect(cx - rad, cy - rad, rad * 2, rad * 2);
-
-      // 镜面主高光：左上聚光
-      const gh = ctx.createRadialGradient(cx - rad * 0.34, cy - rad * 0.4, 2, cx - rad * 0.34, cy - rad * 0.4, rad * 0.6);
-      gh.addColorStop(0, 'rgba(255,255,255,0.5)');
-      gh.addColorStop(1, 'rgba(255,255,255,0)');
-      ctx.fillStyle = gh;
-      ctx.fillRect(cx - rad, cy - rad, rad * 2, rad * 2);
-
-      ctx.restore();
+      ctx.restore();   // 高光/内壁阴影由 DOM 的 --orb-bg 承担，此处不再重复绘制
     }
 
+    const FRAME_MS = window.innerWidth < 760 ? 33 : 0;   // 手机 30fps 省电
+    let lastDraw = 0;
     function frame(now) {
       if (!running) return;
+      rafId = requestAnimationFrame(frame);
+      if (FRAME_MS && now - lastDraw < FRAME_MS - 3) return;
+      lastDraw = now;
       const t = (now - t0) / 1000;
       ctx.clearRect(0, 0, W, H);
       if (!videoOn()) {
@@ -557,8 +563,7 @@
           if (p.x < -4) p.x = W + 4; else if (p.x > W + 4) p.x = -4;
         }
       }
-      drawLens();
-      rafId = requestAnimationFrame(frame);
+      drawLens(now);
     }
     function start() { if (!running) { running = true; rafId = requestAnimationFrame(frame); } }
     function stop() { running = false; if (rafId) cancelAnimationFrame(rafId); rafId = null; ctx.clearRect(0, 0, W, H); }
