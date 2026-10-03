@@ -18,6 +18,7 @@
   const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
   const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const FINE_POINTER = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+  const IS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;   // 手机/平板
 
   /* ================= 浪潮过渡 =================
    * 切换主题 / 材质时，新画面以按钮为圆心像浪潮般扩散覆盖全屏
@@ -113,6 +114,8 @@
     fgh.textContent = C.footer.githubLabel;
     fgh.href = C.footer.githubUrl;
     byId('footer-copy').textContent = C.footer.copyright;
+    const ogh = byId('orb-github');
+    ogh.href = C.footer.githubUrl;
 
     byId('modal-title').textContent = C.modal.title;
     byId('modal-text').textContent = C.modal.text;
@@ -164,6 +167,10 @@
     card.addEventListener('click', (e) => e.stopPropagation());
     document.addEventListener('click', hide);
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape') hide(); });
+    // 滚动离开首屏时自动收起（详情卡固定跟随身份栏，不应悬在后续屏幕上）
+    window.addEventListener('scroll', () => {
+      if (open && window.scrollY > 60) hide();
+    }, { passive: true });
   }
 
   /* ================= 滚动揭示（进入视口浮起） ================= */
@@ -276,17 +283,17 @@
   }
 
   function initPointer() {
-    document.querySelectorAll('.orb').forEach((el) => {
-      orbs.push({ el: el, depth: parseFloat(el.dataset.depth || '0.06') });
-    });
+    // 珠子不参与视差漂移：移动的点击目标会让人点不中（视差由背景承担）
     document.querySelectorAll('.tilt').forEach(registerTilt);
     document.querySelectorAll('.magnetic').forEach(registerMagnet);
 
-    window.addEventListener('pointermove', (e) => {
-      pointer.x = (e.clientX / window.innerWidth) * 2 - 1;
-      pointer.y = (e.clientY / window.innerHeight) * 2 - 1;
-      pointer.has = true;
-    }, { passive: true });
+    if (!IS_TOUCH) {
+      window.addEventListener('pointermove', (e) => {
+        pointer.x = (e.clientX / window.innerWidth) * 2 - 1;
+        pointer.y = (e.clientY / window.innerHeight) * 2 - 1;
+        pointer.has = true;
+      }, { passive: true });
+    }
 
     // 磁性按钮的中心缓存（滚动/缩放后刷新，避免逐帧重排）
     let rectTimer = null;
@@ -306,11 +313,23 @@
     let mouseVX = 0, mouseVY = 0;
     window.addEventListener('pointermove', (e) => { mouseVX = e.clientX; mouseVY = e.clientY; }, { passive: true });
 
-    if (REDUCED || !FINE_POINTER) return;   // 触屏不做指针视差（省一条常驻 rAF）
+    if (REDUCED) return;   // 移动端也进入本循环：动画固定播放（自律漂移）
 
     const R = 110;   // 磁性吸附半径
+    // 移动端 30fps 节流（桌面满帧）
+    const PULSE_MS = FINE_POINTER ? 0 : 33;
+    let lastPulse = 0;
     let lastSx = 99, lastSy = 99;   // 脏检查：无变化不写 DOM
-    function frame() {
+    function frame(now) {
+      if (PULSE_MS && now - lastPulse < PULSE_MS - 3) { requestAnimationFrame(frame); return; }
+      lastPulse = now;
+      // 移动端动画固定播放：利萨如曲线自律漂移（无需任何交互）
+      if (IS_TOUCH) {
+        const tt = now / 1000;
+        pointer.x = Math.sin(tt * 0.32) * 0.45;
+        pointer.y = Math.sin(tt * 0.21 + 1.2) * 0.3;
+        pointer.has = true;
+      }
       // 视差（弹簧插值到目标）
       pointer.sx = lerp(pointer.sx, pointer.has ? pointer.x : 0, 0.055);
       pointer.sy = lerp(pointer.sy, pointer.has ? pointer.y : 0, 0.055);
@@ -372,6 +391,49 @@
     window.addEventListener('load', refreshRects);
   }
 
+  /* ================= 快捷导航球：点击弹出快捷菜单 ================= */
+  function initOrbNav() {
+    const anchor = byId('orb-anchor');
+    const orb = byId('orb-nav');
+    const menu = byId('orb-menu');
+    let open = false;
+    let timer = null;
+
+    const show = () => {
+      clearTimeout(timer);
+      menu.hidden = false;
+      void menu.offsetWidth;                 // 强制回流：过渡从收起态开始
+      anchor.classList.add('open');
+      orb.setAttribute('aria-expanded', 'true');
+      open = true;
+    };
+    const hide = () => {
+      if (!open) return;
+      anchor.classList.remove('open');
+      orb.setAttribute('aria-expanded', 'false');
+      timer = setTimeout(() => { menu.hidden = true; }, 420);
+      open = false;
+    };
+
+    orb.addEventListener('click', (e) => { e.stopPropagation(); open ? hide() : show(); });
+    menu.addEventListener('click', (e) => e.stopPropagation());
+    document.addEventListener('click', hide);
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') hide(); });
+    window.addEventListener('scroll', () => { if (open) hide(); }, { passive: true });
+
+    menu.querySelectorAll('[data-go]').forEach((b) => {
+      b.addEventListener('click', () => {
+        hide();
+        if (b.dataset.go === 'top') {
+          window.scrollTo({ top: 0, behavior: REDUCED ? 'auto' : 'smooth' });
+        } else {
+          const el = document.getElementById(b.dataset.go);
+          if (el) el.scrollIntoView({ behavior: REDUCED ? 'auto' : 'smooth' });
+        }
+      });
+    });
+  }
+
   /* ================= 滚动提示 ================= */
   function initScrollHint() {
     byId('scroll-hint').addEventListener('click', () => {
@@ -380,8 +442,8 @@
   }
 
   /* ================= 视频背景自动适配 =================
-   * 检测 assets/hero-video.mp4：存在则淡入视频背景、淡出照片，
-   * 并停用波光层（视频自带动态）；不存在则维持照片 + 波光。 */
+   * 检测 assets/hero-video.mp4：存在则启用全页固定播放的视频背景、
+   * 淡出照片，并停用波光层（视频自带动态）；不存在则维持照片 + 波光。 */
   function initHeroVideo() {
     const video = byId('hero-video');
     const img = byId('hero-img');
@@ -402,9 +464,9 @@
       .catch(() => false);
   }
 
-  /* ================= 首屏动态层：海面碎金 + 浮尘微粒 =================
-   * canvas 逐帧绘制：波光向太阳位置聚集、随透视近疏远密；
-   * 首屏滚出视口 / 页面隐藏时自动暂停，省电零负担。 */
+  /* ================= 首屏动态层：碎金波光 + 浮尘 + 透镜折射 =================
+   * canvas 逐帧绘制；手机 30fps 节流 + DPR 1.5 + 16 条切片降开销；
+   * 滚出首屏 / 切后台自动暂停；触屏设备禁用折射（错位仅出现在触屏浏览器）。 */
   function initHeroFx() {
     const canvas = byId('hero-fx');
     const img = byId('hero-img');
@@ -413,7 +475,6 @@
     let W = 0, H = 0, horizonY = 0, sunX = 0;
 
     function resize() {
-      // 手机 DPR 封顶 1（画布分辨率降 4~9 倍），桌面封顶 2
       const dpr = window.innerWidth < 760 ? 1.5 : Math.min(2, window.devicePixelRatio || 1);
       W = canvas.clientWidth; H = canvas.clientHeight;
       canvas.width = W * dpr; canvas.height = H * dpr;
@@ -459,33 +520,25 @@
 
     let running = false, rafId = null;
     const t0 = performance.now();
+    const FRAME_MS = window.innerWidth < 760 ? 33 : 0;   // 手机 30fps 节流
+    let lastDraw = 0;
 
     const orbEl = document.querySelector('.orb-c');
     const videoEl = byId('hero-video');
     const videoOn = () => videoEl && !videoEl.hidden && videoEl.readyState >= 2;
 
     /** 透镜折射：以玻璃珠区域为透镜，切片位移重绘背景
-     *  边缘画面被拉开弯折（倍率向圆心递减），叠加色散亮边、
-     *  内壁厚度阴影与左上镜面高光 —— OriginOS 透镜观感。 */
-    const lens = { rect: false, ts: 0, orb: null, canvas: null };
-    // 滚动/视口变化时让 rect 缓存立即失效（静止时 150ms 缓存省强制布局）
-    window.addEventListener('scroll', () => { lens.ts = 0; }, { passive: true });
-    function drawLens(now) {
-      if (!orbEl || !document.body.classList.contains('glass-enabled')) return;
+     *  边缘画面被拉开弯折（倍率向圆心递减），叠加色散亮边。 */
+    function drawLens() {
+      if (!orbEl || IS_TOUCH || !document.body.classList.contains('glass-enabled')) return;
       const src = videoOn() ? videoEl : img;
       const nw = src.videoWidth || src.naturalWidth;
       const nh = src.videoHeight || src.naturalHeight;
       if (!nw || !nh) return;
 
-      // rect 缓存 150ms（珠子移动缓慢，避免每帧强制同步布局）
-      const nowMs = now || performance.now();
-      if (!lens.rect || nowMs - lens.ts > 150) {
-        lens.orb = orbEl.getBoundingClientRect();
-        lens.canvas = canvas.getBoundingClientRect();
-        lens.ts = nowMs;
-      }
-      const r = lens.orb;
-      const cr = lens.canvas;
+      // 每帧实时取位置：珠子被浮动动画 + 视差持续移动
+      const r = orbEl.getBoundingClientRect();
+      const cr = canvas.getBoundingClientRect();
       const cx = r.left + r.width / 2 - cr.left;
       const cy = r.top + r.height / 2 - cr.top;
       const rad = r.width / 2;
@@ -501,19 +554,18 @@
       ctx.arc(cx, cy, rad, 0, Math.PI * 2);
       ctx.clip();
 
-      // 横向切片位移：每条切片按到圆心的距离决定放大率
-      const strips = W < 760 ? 16 : 30;   // 小屏 16 条折射切片
+      const strips = W < 760 ? 16 : 30;
       for (let i = 0; i < strips; i++) {
         const ty = (i + 0.5) / strips * 2 - 1;
         const chord = Math.sqrt(Math.max(0, 1 - ty * ty));
         if (chord <= 0.02) continue;
         const y0 = cy + ty * rad;
         const h = (2 * rad) / strips;
-        const mag = 1.12 + 0.42 * (1 - chord);       // 中心 1.12，边缘 ~1.54（折射更明显）
+        const mag = 1.12 + 0.42 * (1 - chord);        // 中心 1.12，边缘 ~1.54
         const dw = 2 * chord * rad;
         const srcW = dw / s / mag;
         const srcH = h / s / mag;
-        const srcRowY = srcCy + ty * rad / s / mag;  // 垂直同步向圆心收
+        const srcRowY = srcCy + ty * rad / s / mag;
         ctx.drawImage(src, srcCx - srcW / 2, srcRowY - srcH / 2, srcW, srcH,
                       cx - dw / 2, y0, dw, h);
       }
@@ -525,15 +577,12 @@
       ctx.strokeStyle = 'rgba(140,210,255,0.22)';
       ctx.beginPath(); ctx.arc(cx - 1.4, cy - 1, rad - 1.2, 0, Math.PI * 2); ctx.stroke();
 
-      ctx.restore();   // 高光/内壁阴影由 DOM 的 --orb-bg 承担，此处不再重复绘制
+      ctx.restore();
     }
 
-    const FRAME_MS = window.innerWidth < 760 ? 33 : 0;   // 手机 30fps 省电
-    let lastDraw = 0;
     function frame(now) {
       if (!running) return;
-      rafId = requestAnimationFrame(frame);
-      if (FRAME_MS && now - lastDraw < FRAME_MS - 3) return;
+      if (FRAME_MS && now - lastDraw < FRAME_MS - 3) { requestAnimationFrame(frame); return; }
       lastDraw = now;
       const t = (now - t0) / 1000;
       ctx.clearRect(0, 0, W, H);
@@ -563,7 +612,8 @@
           if (p.x < -4) p.x = W + 4; else if (p.x > W + 4) p.x = -4;
         }
       }
-      drawLens(now);
+      drawLens();
+      requestAnimationFrame(frame);
     }
     function start() { if (!running) { running = true; rafId = requestAnimationFrame(frame); } }
     function stop() { running = false; if (rafId) cancelAnimationFrame(rafId); rafId = null; ctx.clearRect(0, 0, W, H); }
@@ -577,7 +627,7 @@
     } else start();
 
     const boot = () => { resize(); seed(); start(); };
-    boot();                                    // 立即启动（折射不依赖照片加载完成）
+    boot();
     if (!img.complete) img.addEventListener('load', () => { resize(); seed(); });
   }
 
@@ -590,6 +640,7 @@
   initReveal();
   initProjects();
   initScrollHint();
+  initOrbNav();
   initPointer();
   initHeroVideo();
   initHeroFx();

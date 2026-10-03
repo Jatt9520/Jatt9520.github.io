@@ -8,7 +8,7 @@
   <!-- 相对路径基准：适配 GitHub Pages 子路径部署 -->
   <base href="./">
   <title>跨世代 · Liquid Glass</title>
-  <link rel="stylesheet" href="css/style.css?v=20261035">
+  <link rel="stylesheet" href="css/style.css?v=20261052">
   <!--
     =====================================================================
     GitHub Pages 部署步骤
@@ -29,6 +29,10 @@
   -->
 </head>
 <body>
+
+  <!-- 全页视频背景：放入 assets/hero-video.mp4 后自动启用固定播放 -->
+  <video id="hero-video" muted loop playsinline preload="auto" hidden
+         aria-hidden="true"></video>
 
   <!-- 全页天幕：流动渐变层 + 极光层（fixed，所有屏共享同一底，翻页无接缝） -->
   <div class="page-flow" aria-hidden="true"></div>
@@ -56,6 +60,20 @@
       </div>
     </div>
   </header>
+
+  <!-- 快捷导航球：固定悬浮，点击弹出快捷菜单（回顶部 / 初衷 / 项目 / GitHub） -->
+  <div class="orb-anchor" id="orb-anchor">
+    <button class="orb glass-orb orb-c" id="orb-nav" type="button" data-depth="0.04"
+            style="--d:42s" aria-expanded="false" aria-controls="orb-menu" aria-label="快捷导航">
+      <span class="orb-glyph" aria-hidden="true">✦</span>
+    </button>
+    <nav class="orb-menu" id="orb-menu" hidden aria-label="快捷导航菜单">
+      <button class="orb-item" data-go="top" type="button">⌂ 回顶部</button>
+      <button class="orb-item" data-go="s-creation" type="button">✎ 创作初衷</button>
+      <button class="orb-item" data-go="s-projects" type="button">◈ 我的项目</button>
+      <a class="orb-item" id="orb-github" target="_blank" rel="noopener">↗ GitHub</a>
+    </nav>
+  </div>
 
   <!-- 右上角：深浅色切换 + 液态玻璃开关（悬停 1 秒显示功能提示） -->
   <div class="top-controls">
@@ -90,15 +108,10 @@
     <section class="scene s-hero" id="s-hero">
       <div class="hero-bg" aria-hidden="true">
         <img src="assets/hero.jpg" alt="" id="hero-img">
-        <!-- 放入 assets/hero-video.mp4 后自动启用视频背景（见 main.js） -->
-        <video id="hero-video" muted loop playsinline preload="auto" hidden></video>
       </div>
       <div class="hero-veil" aria-hidden="true"></div>
       <!-- 动态层：海面碎金波光 + 浮尘微粒（canvas 逐帧） -->
       <canvas class="hero-fx" id="hero-fx" aria-hidden="true"></canvas>
-
-      <!-- 漂浮玻璃珠（真实折射 + 鼠标视差） -->
-      <div class="orb glass-orb orb-c" data-depth="0.04" style="--d:42s" aria-hidden="true"></div>
 
       <!-- 滚动提示 -->
       <button class="scroll-hint glass-chip" id="scroll-hint" type="button">
@@ -162,7 +175,7 @@
     </div>
   </div>
 
-  <script src="js/config.js?v=20261035"></script>
-  <script src="js/main.js?v=20261035"></script>
+  <script src="js/config.js?v=20261052"></script>
+  <script src="js/main.js?v=20261052"></script>
 </body>
 </html>
