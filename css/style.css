@@ -338,13 +338,15 @@ body.dark .theme-toggle .icon-sun { display: block; }
   animation: kenburns 44s ease-in-out infinite;
   will-change: transform;
 }
-/* 视频背景（放入 assets/hero-video.mp4 自动启用） */
+/* 视频背景：全页固定层（放入 assets/hero-video.mp4 自动启用），
+   位于天幕之上、内容之下——所有屏的玻璃面板后透出的都是视频 */
 #hero-video {
-  position: absolute;
+  position: fixed;
   inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
+  z-index: -1;
 }
 #hero-video[hidden] { display: none; }
 .hero-bg img { transition: opacity 0.9s var(--out); }
@@ -403,7 +405,7 @@ body.dark .theme-toggle .icon-sun { display: block; }
   will-change: transform;
   z-index: 3;   /* 玻璃壳在 canvas 折射层之上：波光/浮尘从珠后掠过，不再盖住珠体 */
 }
-.orb-c { width: 150px; height: 150px; right: 8%; bottom: 12%; }
+
 .orb::before { padding: 1.6px; }   /* 外缘折射细环稍粗，玻璃感更强 */
 
 /* 滚动提示 */
@@ -621,6 +623,13 @@ body.dark .page-aurora i:nth-child(3) { background: radial-gradient(circle, rgba
 .creation-panel {
   padding: 40px 44px 36px;
   text-align: center;
+  /* 加厚白玻璃：深浅主题下文字都有足够对比度 */
+  background-image: linear-gradient(115deg, rgba(255,255,255,.5), rgba(255,255,255,.3) 42%, rgba(255,255,255,.44));
+  -webkit-backdrop-filter: blur(20px) saturate(170%);
+  backdrop-filter: blur(20px) saturate(170%);
+}
+body.dark .creation-panel {
+  background-image: linear-gradient(115deg, rgba(18,26,32,.66), rgba(18,26,32,.45) 42%, rgba(18,26,32,.6));
 }
 .big-text {
   font-size: 16.5px;
@@ -752,6 +761,10 @@ body.dark .footer-link:hover { color: #7fc4c9; }
 .footer-copy { letter-spacing: 0.04em; }
 
 /* ---------- ⑪ 欢迎弹窗 ---------- */
+/* 浅色主题下弹窗叠在深色照片上：强制白玻璃保证深色文字可读 */
+body:not(.dark) .modal-card {
+  background-image: linear-gradient(115deg, rgba(255,255,255,.82), rgba(255,255,255,.62) 42%, rgba(255,255,255,.76));
+}
 .modal {
   position: fixed;
   inset: 0;
@@ -841,6 +854,104 @@ body.dark .ghost-btn:hover { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.3
 }
 .cta-btn:active { transform: translateY(-1px) scale(0.98); }
 
+
+/* ---------- 快捷导航球（固定悬浮 + 弹出菜单） ---------- */
+.orb-anchor {
+  position: fixed;
+  right: calc(18px + env(safe-area-inset-right, 0px));
+  user-select: none;
+  bottom: calc(84px + env(safe-area-inset-bottom, 0px));
+  z-index: 850;
+}
+.orb-anchor .orb-c {
+  position: relative;
+  inset: auto;
+  width: 64px;
+  height: 64px;
+  right: auto;
+  bottom: auto;
+  cursor: pointer;
+  pointer-events: auto;      /* 覆盖装饰珠的 pointer-events:none，按钮必须可点 */
+  user-select: none;         /* 防止点击触发文字选择/复制弹窗 */
+}
+.orb-glyph {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  color: rgba(255, 255, 255, 0.92);
+  text-shadow: 0 2px 10px rgba(8, 32, 40, 0.5);
+  pointer-events: none;
+  z-index: 3;
+  transition: transform 0.45s var(--spring);
+}
+.orb-anchor[aria-expanded="true"] .orb-glyph,
+.orb-anchor.open .orb-glyph { transform: rotate(90deg) scale(1.15); }
+.orb-anchor:hover .orb-glyph { transform: scale(1.2); }
+
+/* 弹出菜单：玻璃药丸纵向堆叠，自珠心向上错峰展开 */
+.orb-menu {
+  position: absolute;
+  bottom: calc(100% + 14px);
+  right: 0;
+  display: flex;
+}
+.orb-menu[hidden] { display: none; }
+.orb-menu {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 9px;
+}
+.orb-item {
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  color: var(--ink);
+  padding: 9px 18px;
+  border-radius: 999px;
+  background-image: var(--glass-bg);
+  background-color: rgba(255, 255, 255, 0.24);
+  -webkit-backdrop-filter: blur(16px) saturate(170%);
+  backdrop-filter: blur(16px) saturate(170%);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.32),
+    0 10px 26px rgba(8, 32, 40, 0.24);
+  text-decoration: none;
+  white-space: nowrap;
+  opacity: 0;
+  transform: translateX(16px) scale(0.9);
+  transition:
+    opacity 0.32s var(--out),
+    transform 0.45s var(--spring),
+    box-shadow 0.3s var(--out);
+}
+body.dark .orb-item {
+  background-color: rgba(24, 34, 40, 0.4);
+  color: var(--ink);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.14),
+    0 10px 26px rgba(0, 0, 0, 0.4);
+}
+.orb-item:hover {
+  transform: translateX(-4px) scale(1.04);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.55),
+    0 14px 32px rgba(8, 32, 40, 0.3);
+}
+.orb-anchor.open .orb-item { opacity: 1; transform: none; }
+.orb-anchor.open .orb-item:nth-child(1) { transition-delay: 0.05s, 0.05s, 0s; }
+.orb-anchor.open .orb-item:nth-child(2) { transition-delay: 0.11s, 0.11s, 0s; }
+.orb-anchor.open .orb-item:nth-child(3) { transition-delay: 0.17s, 0.17s, 0s; }
+.orb-anchor.open .orb-item:nth-child(4) { transition-delay: 0.23s, 0.23s, 0s; }
+
+/* 珠子加 glyph 后图标层在 canvas 折射之上 */
+.orb-anchor .orb-c { overflow: visible; }
+
 /* ---------- ⑬ 关键帧 ---------- */
 @keyframes kenburns {
   /* 持续推拉 + 横移的循环运镜 */
@@ -850,8 +961,9 @@ body.dark .ghost-btn:hover { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.3
   100% { transform: scale(1.06) translate(0, 0); }
 }
 @keyframes floaty {
-  from { transform: translateY(-14px); }
-  to   { transform: translateY(16px); }
+  /* 用独立的 translate 属性：不占用 transform，JS 视差得以生效 */
+  from { translate: 0 -14px; }
+  to   { translate: 0 16px; }
 }
 @keyframes drift {
   from { transform: translate(-3vmax, -2vmax) scale(1); }
@@ -925,7 +1037,9 @@ body.dark .ghost-btn:hover { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.3
   .big-text { font-size: 15px; line-height: 2.15; }
   .s-projects { padding-bottom: 150px; }
   .footer-bar { bottom: calc(22px + env(safe-area-inset-bottom, 0px)); font-size: 11.5px; gap: 3px 10px; }
-  .orb-c { width: 88px; height: 88px; right: 5%; bottom: 16%; }
+  .orb-anchor { right: 14px; bottom: calc(72px + env(safe-area-inset-bottom, 0px)); }
+  .orb-anchor .orb-c { width: 58px; height: 58px; }
+  .orb-item { font-size: 12.5px; padding: 8px 15px; }
   .project-grid { grid-template-columns: 1fr; }
   .scene-title { font-size: clamp(26px, 8vw, 34px); }
   /* 小屏过渡带更短（88% 起收） */
@@ -939,9 +1053,9 @@ body.dark .ghost-btn:hover { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.3
     -webkit-backdrop-filter: blur(16px) saturate(165%);
     backdrop-filter: blur(16px) saturate(165%);
   }
-  /* 珠子：折射已由 canvas 逐帧绘制，去掉背板模糊（最贵的一项） */
+  /* 珠子：移动端无 canvas 折射（触屏禁用），恢复玻璃磨砂质感 */
   .glass-orb {
-    -webkit-backdrop-filter: saturate(170%) brightness(1.06);
-    backdrop-filter: saturate(170%) brightness(1.06);
+    -webkit-backdrop-filter: blur(6px) saturate(180%) brightness(1.06);
+    backdrop-filter: blur(6px) saturate(180%) brightness(1.06);
   }
 }
