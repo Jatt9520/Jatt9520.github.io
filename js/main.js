@@ -258,7 +258,8 @@
       C.projects.repos.forEach((name, i) => {
         const repo = byName[name.toLowerCase()];
         if (!repo) return;
-        const desc = repo.description || C.projects.repoDescs[name] || C.projects.noDesc;
+        // 中文介绍优先：config.repoDescs 是站点自己的文案，压过 GitHub 的英文描述
+        const desc = C.projects.repoDescs[name] || repo.description || C.projects.noDesc;
         const lang = repo.language ? '<span class="pill">' + esc(repo.language) + '</span>' : '';
         const star = '<span class="pill star">★ ' + fmtStars(repo.stargazers_count || 0) + '</span>';
         const points = C.projects.highlights[name] || [];

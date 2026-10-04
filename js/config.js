@@ -50,7 +50,8 @@ const CONFIG = {
       'video-spider-installer'
     ],
     repoDescs: {                   // 描述兜底：GitHub 未填 description 时使用
-      quasardb: 'From-scratch TypeScript 关系型数据库引擎 · 零依赖，覆盖 SQL 前端、查询优化、执行引擎、页式存储、B+ 树索引与事务'
+      quasardb: 'From-scratch TypeScript 关系型数据库引擎 · 零依赖，覆盖 SQL 前端、查询优化、执行引擎、页式存储、B+ 树索引与事务',
+      MarkdownReader: '一款现代 Markdown 阅读器：实时预览、主题跟随语法高亮、标题大纲、PDF 导出——轻量零框架，全量中文注释。'
     },
     highlights: {                  // 「看看细节」展开的技术清单（纯清单、不叙述）
       quasardb: [
@@ -61,9 +62,10 @@ const CONFIG = {
       ],
       MarkdownReader: [
         'QTextBrowser 轻量预览 · 免浏览器内核秒启动',
-        'AI 助手 · 自备 Key 兼容 OpenAI 系接口',
+        'AI 助手 · 需自备 API Key · 兼容 OpenAI 系接口',
         '标题大纲跳转 · 任务列表 · 本地图片渲染',
-        'PDF / HTML 双格式导出 · GBK 编码自动识别'
+        'PDF / HTML 双格式导出 · GBK 编码自动识别',
+        '全量中文注释 · 中英双语 README'
       ],
       'video-spider-installer': [
         '26 个平台视频去水印服务部署',
