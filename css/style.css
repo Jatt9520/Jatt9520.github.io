@@ -72,8 +72,6 @@ body {
   transition: background 0.5s var(--out), color 0.5s var(--out);
 }
 
-.svg-defs { position: absolute; width: 0; height: 0; }
-
 /* ---------- ② 全屏吸附滚动 ---------- */
 .scene {
   position: relative;
@@ -159,7 +157,7 @@ body {
 }
 
 /* 玻璃关闭：更实的半透明底，保证可读性（backdrop-filter 移除）
-   玻璃珠单独处理：保留气泡明暗结构，仅关闭折射 */
+   玻璃珠单独处理：保留气泡明暗结构，仅关闭折射（--orb-bg 定义在 .orb 上） */
 body:not(.glass-enabled) .glass-panel,
 body:not(.glass-enabled) .glass-chip,
 body:not(.glass-enabled) .glass-control {
@@ -168,8 +166,7 @@ body:not(.glass-enabled) .glass-control {
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
 }
-body:not(.glass-enabled) .orb,
-body:not(.glass-enabled) .glass-orb {
+body:not(.glass-enabled) .orb {
   background-image: var(--orb-bg);
   background-color: transparent;
   -webkit-backdrop-filter: blur(1px) saturate(120%);
@@ -207,14 +204,14 @@ body:not(.glass-enabled) .glass-orb {
   line-height: 1.5;
   white-space: nowrap;
 }
-/* 详情卡展开时身份栏联动：亮环提亮、头像微放大 */
-.identity:has(.about-card.open) {
+/* 详情卡展开时身份栏联动：亮环提亮、头像微放大（开合状态由 body.about-open 驱动） */
+body.about-open .identity {
   box-shadow:
     inset 0 0 0 1.5px rgba(255, 255, 255, 0.55),
     0 18px 44px rgba(8, 32, 40, 0.28);
 }
-.identity:has(.about-card.open) .avatar { transform: scale(1.06); }
-body.dark .identity:has(.about-card.open) {
+body.about-open .identity .avatar { transform: scale(1.06); }
+body.dark.about-open .identity {
   box-shadow:
     inset 0 0 0 1.5px rgba(255, 255, 255, 0.28),
     0 18px 44px rgba(0, 0, 0, 0.45);
@@ -337,7 +334,10 @@ body.dark .theme-toggle .icon-sun { display: block; }
   transform: scale(1.06);
   animation: kenburns 44s ease-in-out infinite;
   will-change: transform;
+  transition: opacity 0.9s var(--out);
 }
+.hero-bg img.off { opacity: 0; }
+
 /* 视频背景：全页固定层（放入 assets/hero-video.mp4 自动启用），
    位于天幕之上、内容之下——所有屏的玻璃面板后透出的都是视频 */
 #hero-video {
@@ -349,8 +349,6 @@ body.dark .theme-toggle .icon-sun { display: block; }
   z-index: -1;
 }
 #hero-video[hidden] { display: none; }
-.hero-bg img { transition: opacity 0.9s var(--out); }
-.hero-bg img.off { opacity: 0; }
 
 /* 动态层：海面碎金 + 浮尘 + 透镜折射（与照片同步渐隐，随天幕一起收尾） */
 .hero-fx {
@@ -454,25 +452,28 @@ body.dark .theme-toggle .icon-sun { display: block; }
 .avatar[aria-expanded="true"] { transform: scale(0.94); }
 
 /* 自我介绍卡：常驻渲染（不再 display:none，玻璃材质预热在位），
-   从头像下方弹出，左对齐身份栏 */
+   挂在 body 层、fixed 定位到身份栏下方——保证背板模糊能采样到整页内容；
+   从头像下方弹出，左对齐身份栏；展开时加厚玻璃，任何背景上保持可读 */
 .about-card {
-  position: absolute;
-  top: calc(100% + 12px);
-  left: 0;
+  position: fixed;
+  top: 114px;
+  left: 20px;
   width: min(340px, 86vw);
   padding: 26px 28px 24px;
-  transform-origin: 44px -50px;   /* 原点指向头像球心 */
+  transform-origin: 44px -54px;   /* 原点指向头像球心 */
   transform: scale(0.16) translateY(-8px);
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
+  background-image: linear-gradient(115deg, rgba(255,255,255,.36), rgba(255,255,255,.18) 42%, rgba(255,255,255,.3));
+  box-shadow: 0 30px 80px rgba(8, 32, 40, 0.3);
   transition:
     transform 0.55s var(--spring),
     opacity 0.32s var(--out),
     visibility 0s linear 0.42s,
     background-color 0.45s var(--out),
     box-shadow 0.45s var(--out);
-  z-index: 6;
+  z-index: 890;                   /* 身份栏(900)之下、页面内容之上 */
 }
 .about-card.open {
   transform: scale(1) translateY(0);
@@ -485,11 +486,6 @@ body.dark .theme-toggle .icon-sun { display: block; }
     visibility 0s,
     background-color 0.45s var(--out),
     box-shadow 0.45s var(--out);
-}
-/* 展开时卡片加厚玻璃，任何背景上都保持可读 */
-.about-card {
-  background-image: linear-gradient(115deg, rgba(255,255,255,.36), rgba(255,255,255,.18) 42%, rgba(255,255,255,.3));
-  box-shadow: 0 30px 80px rgba(8, 32, 40, 0.3);
 }
 body.dark .about-card {
   background-image: linear-gradient(115deg, rgba(20,32,38,.62), rgba(20,32,38,.4) 42%, rgba(20,32,38,.55));
@@ -657,7 +653,6 @@ body.dark .creation-panel {
   flex-direction: column;
   gap: 10px;
   padding: 26px 26px 22px;
-  text-decoration: none;
   color: var(--ink);
   /* transform 由 main.js 的 rAF 倾斜系统接管，这里只过渡阴影/底色 */
   transition: box-shadow 0.45s var(--out), background-color 0.45s var(--out);
@@ -669,9 +664,20 @@ body.dark .creation-panel {
   font-size: 17.5px;
   font-weight: 800;
   letter-spacing: 0.02em;
+}
+/* 拉伸链接：标题链接的 ::after 铺满卡片，整卡可点跳转仓库；
+   「看看细节」按钮以 z-index 盖在其上，各管各的 */
+.project-open {
   display: flex;
   align-items: center;
   gap: 8px;
+  color: inherit;
+  text-decoration: none;
+}
+.project-open::after {
+  content: '';
+  position: absolute;
+  inset: 0;
 }
 .project-name .arrow {
   margin-left: auto;
@@ -705,6 +711,72 @@ body.dark .project-name .arrow { color: #7fc4c9; }
 body.dark .pill { color: #8fd0d5; background: rgba(46, 111, 117, 0.28); }
 .pill.star { color: #b0622f; background: rgba(242, 185, 140, 0.24); }
 body.dark .pill.star { color: #f4c39a; background: rgba(242, 185, 140, 0.14); }
+
+/* 「看看细节」：卡内原位展开的技术清单 */
+.project-toggle {
+  position: relative;
+  z-index: 2;                     /* 盖在拉伸链接之上 */
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  align-self: flex-start;
+  margin-top: 2px;
+  border: none;
+  background: none;
+  padding: 4px 2px;
+  font-family: inherit;
+  font-size: 12.5px;
+  letter-spacing: 0.04em;
+  color: var(--teal);
+  cursor: pointer;
+  transition: color 0.25s var(--out);
+}
+.project-toggle:hover { color: var(--teal-deep); }
+body.dark .project-toggle { color: #7fc4c9; }
+body.dark .project-toggle:hover { color: #9fd8dd; }
+.project-toggle svg { transition: transform 0.45s var(--spring); }
+.project-toggle[aria-expanded="true"] svg { transform: rotate(180deg); }
+
+/* 展开容器：grid 行高 0fr→1fr 过渡；清单的全部留白都放在 li 上，
+   收起时随内容一起被裁掉，折叠态零占位 */
+.project-more {
+  display: grid;
+  grid-template-rows: 0fr;
+  visibility: hidden;
+  transition: grid-template-rows 0.5s var(--out), visibility 0s linear 0.5s;
+}
+.project-card.expanded .project-more {
+  grid-template-rows: 1fr;
+  visibility: visible;
+  transition: grid-template-rows 0.5s var(--out), visibility 0s;
+}
+.project-more ul {
+  min-height: 0;
+  overflow: hidden;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.project-points li {
+  position: relative;
+  margin-top: 7px;
+  padding-left: 16px;
+  font-size: 12.8px;
+  line-height: 1.9;
+  color: var(--muted);
+}
+.project-points li::before {
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: 0.78em;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--teal);
+  opacity: 0.55;
+}
+body.dark .project-points li::before { background: #7fc4c9; }
 
 /* 骨架屏：加载中的玻璃微光 */
 .project-card.skeleton { min-height: 168px; }
@@ -743,12 +815,6 @@ body.dark .pill.star { color: #f4c39a; background: rgba(242, 185, 140, 0.14); }
   text-align: center;
   cursor: default;
 }
-.footer-name {
-  color: var(--ink);
-  font-weight: 700;
-  letter-spacing: 0.08em;
-}
-.footer-motto { letter-spacing: 0.3em; }
 .footer-sep { width: 1px; height: 12px; background: var(--line); }
 .footer-link {
   color: var(--muted);
@@ -887,7 +953,6 @@ body.dark .ghost-btn:hover { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.3
   z-index: 3;
   transition: transform 0.45s var(--spring);
 }
-.orb-anchor[aria-expanded="true"] .orb-glyph,
 .orb-anchor.open .orb-glyph { transform: rotate(90deg) scale(1.15); }
 .orb-anchor:hover .orb-glyph { transform: scale(1.2); }
 
@@ -897,14 +962,11 @@ body.dark .ghost-btn:hover { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.3
   bottom: calc(100% + 14px);
   right: 0;
   display: flex;
-}
-.orb-menu[hidden] { display: none; }
-.orb-menu {
-  display: flex;
   flex-direction: column;
   align-items: flex-end;
   gap: 9px;
 }
+.orb-menu[hidden] { display: none; }
 .orb-item {
   border: none;
   cursor: pointer;
@@ -974,10 +1036,6 @@ body.dark .orb-item {
   from { transform: translate3d(-6%, -4%, 0); }
   to   { transform: translate3d(6%, 4%, 0); }
 }
-@keyframes rise {
-  from { opacity: 0; transform: translateY(26px); }
-  to   { opacity: 1; transform: none; }
-}
 @keyframes fadeDown {
   from { opacity: 0; transform: translateY(-14px); }
   to   { opacity: 1; transform: none; }
@@ -1010,6 +1068,25 @@ body.dark .orb-item {
 }
 
 /* ---------- ⑮ 响应式 ---------- */
+/* 自律模式（触屏/强制参数）：无悬停，追光以接近悬停的强度常驻，随倾斜扫动 */
+body.auto-tilt .tilt > .glare { opacity: 0.85; }
+
+/* 低性能自动降级（持续掉帧约 3 秒触发，见 main.js；健康设备永不进入，
+   默认观感不变）：收敛大动效保帧率。手动等效 = 右上角材质切换。 */
+body.perf-lite .hero-fx { display: none; }
+body.perf-lite .page-aurora i,
+body.perf-lite .page-flow::after,
+body.perf-lite .hero-bg img,
+body.perf-lite .orb { animation-play-state: paused; }
+body.perf-lite .tilt > .glare { opacity: 0; }
+body.perf-lite .tilt:hover > .glare { opacity: 1; }
+body.perf-lite .project-card,
+body.perf-lite .creation-panel,
+body.perf-lite .footer-bar {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
 @media (max-width: 760px), (max-height: 600px) {
   html { scroll-snap-type: y proximity; }   /* 小屏内容可能超一屏，放宽吸附 */
   /* 顶部加大留白：为固定的身份栏让位，标题不再被压住 */
@@ -1024,7 +1101,7 @@ body.dark .orb-item {
   .avatar { width: 50px; height: 50px; }
   .identity-name { font-size: 15.5px; }
   .identity-motto { font-size: 10px; letter-spacing: 0.28em; }
-  .about-card { width: min(320px, calc(100vw - 44px)); padding: 22px 22px 20px; }
+  .about-card { width: min(320px, calc(100vw - 44px)); padding: 22px 22px 20px; top: 94px; }
 
   /* 右上角按钮缩小并收紧 */
   .theme-toggle, .glass-toggle { width: 34px; height: 34px; }
@@ -1049,7 +1126,7 @@ body.dark .orb-item {
   }
 
   /* 移动端背板模糊降幅：柔和渐变背景下观感几乎不变，滚动重算省约 40% */
-  .glass-panel, .glass-chip, .glass-control, .glass-modal {
+  .glass-panel, .glass-chip, .glass-control, .modal-card {
     -webkit-backdrop-filter: blur(16px) saturate(165%);
     backdrop-filter: blur(16px) saturate(165%);
   }

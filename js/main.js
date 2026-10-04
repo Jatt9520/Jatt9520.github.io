@@ -19,6 +19,13 @@
   const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const FINE_POINTER = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
   const IS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;   // 手机/平板
+  // 调试：?autotilt=1 强制自律倾斜 / =0 强制指针倾斜；不传则按设备自动判定。
+  // 判定用「主指针为粗」或「不支持悬停+精确指针」：部分安卓浏览器会谎报 hover，
+  // 单看 (hover:hover)&&(pointer:fine) 会把手机误判成桌面，导致自律动效整体失效。
+  const AUTO_PARAM = (location.search.match(/[?&]autotilt=(0|1)/) || [])[1];
+  const AUTO_DEVICE = AUTO_PARAM ? AUTO_PARAM === '1'
+    : window.matchMedia('(pointer: coarse)').matches || !FINE_POINTER;
+  if (AUTO_DEVICE) document.body.classList.add('auto-tilt');
 
   /* ================= 浪潮过渡 =================
    * 切换主题 / 材质时，新画面以按钮为圆心像浪潮般扩散覆盖全屏
@@ -151,13 +158,15 @@
 
     function show() {
       clearTimeout(timer);
-      card.classList.add('open');     // 卡片常驻渲染，直接展开（材质已预热）
+      card.classList.add('open');
+      document.body.classList.add('about-open');   // 身份栏联动（亮环/头像微放大）
       avatar.setAttribute('aria-expanded', 'true');
       open = true;
     }
     function hide() {
       if (!open) return;
       card.classList.remove('open');
+      document.body.classList.remove('about-open');
       avatar.setAttribute('aria-expanded', 'false');
       open = false;
     }
@@ -191,7 +200,7 @@
     els.forEach((el) => io.observe(el));
   }
 
-  /* ================= 项目拉取（GitHub 实时 + 骨架屏） ================= */
+  /* ================= 项目区（读本地烤制数据 + 卡内细节展开） ================= */
   function esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, (c) => (
       { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
@@ -203,38 +212,55 @@
     const grid = byId('project-grid');
     const fallbackEl = byId('project-fallback');
     try {
-      const res = await fetch(C.projects.apiBase + '/users/' + C.projects.owner + '/repos?per_page=100', {
-        headers: { Accept: 'application/vnd.github+json' }
-      });
-      if (!res.ok) throw new Error('repos ' + res.status);
-      const repos = await res.json();
-
-      const cards = C.projects.repos
-        .map((name) => ({ name: name, repo: repos.find((r) => r.name.toLowerCase() === name.toLowerCase()) }))
-        .filter((x) => x.repo);
-      if (cards.length === 0) throw new Error('no repos matched');
+      const opt = { cache: 'no-cache' };
+      if ('timeout' in AbortSignal) opt.signal = AbortSignal.timeout(6000);
+      const res = await fetch(C.projects.dataFile, opt);
+      if (!res.ok) throw new Error('projects.json ' + res.status);
+      const data = await res.json();
+      const byName = {};
+      (data.repos || []).forEach((r) => { byName[String(r.name).toLowerCase()] = r; });
 
       grid.innerHTML = '';
-      cards.forEach((item, i) => {
-        const repo = item.repo;
-        const desc = repo.description || C.projects.repoDescs[item.name] || C.projects.noDesc;
+      C.projects.repos.forEach((name, i) => {
+        const repo = byName[name.toLowerCase()];
+        if (!repo) return;
+        const desc = repo.description || C.projects.repoDescs[name] || C.projects.noDesc;
         const lang = repo.language ? '<span class="pill">' + esc(repo.language) + '</span>' : '';
         const star = '<span class="pill star">★ ' + fmtStars(repo.stargazers_count || 0) + '</span>';
+        const points = C.projects.highlights[name] || [];
+        const details = points.length
+          ? '<button class="project-toggle" type="button" aria-expanded="false">'
+            + esc(C.projects.detailLabel)
+            + '<svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+            + '</button>'
+            + '<div class="project-more"><ul class="project-points">'
+            + points.map((t) => '<li>' + esc(t) + '</li>').join('')
+            + '</ul></div>'
+          : '';
 
-        const a = document.createElement('a');
-        a.className = 'project-card glass-panel tilt reveal';
-        a.href = repo.html_url;
-        a.target = '_blank';
-        a.rel = 'noopener';
-        a.style.setProperty('--rd', (i * 0.09).toFixed(2) + 's');
-        a.innerHTML =
+        const card = document.createElement('article');
+        card.className = 'project-card glass-panel tilt reveal';
+        card.style.setProperty('--rd', (i * 0.09).toFixed(2) + 's');
+        card.innerHTML =
           '<i class="glare" aria-hidden="true"></i>'
-          + '<strong class="project-name">' + esc(repo.name)
-          + '<span class="arrow">→</span></strong>'
+          + '<strong class="project-name">'
+          + '<a class="project-open" href="' + esc(repo.html_url) + '" target="_blank" rel="noopener">'
+          + esc(repo.name) + '<span class="arrow">→</span></a></strong>'
           + '<p class="project-desc">' + esc(desc) + '</p>'
-          + '<div class="project-meta">' + lang + star + '</div>';
-        grid.appendChild(a);
-        registerTilt(a);          // 3D 倾斜 + 追光
+          + '<div class="project-meta">' + lang + star + '</div>'
+          + details;
+        grid.appendChild(card);
+        registerTilt(card);          // 3D 倾斜 + 追光
+
+        const toggle = card.querySelector('.project-toggle');
+        if (toggle) toggle.addEventListener('click', () => {
+          const open = toggle.getAttribute('aria-expanded') === 'true';
+          toggle.setAttribute('aria-expanded', String(!open));
+          card.classList.toggle('expanded', !open);
+          // 卡片高度在过渡中变化：立即与过渡结束后各刷新一次位置缓存
+          refreshCardRects();
+          setTimeout(refreshCardRects, 560);
+        });
       });
       // 强制回流后加入揭示动画（避免依赖 rAF）
       void grid.offsetWidth;
@@ -248,33 +274,90 @@
 
   /* ================= 指针系统 =================
    * 一条 rAF 弹簧插值循环统一驱动：
-   *  · 视差景深（漂浮玻璃珠 / 首屏内容反向微移）
+   *  · 视差景深（首屏内容反向微移）
    *  · 3D 倾斜（卡片朝向指针，回弹归位）
    *  · 追光（--gx/--gy 平滑跟随）
-   *  · 磁性吸附（按钮在半径内向指针微移） */
+   *  · 磁性吸附（按钮在半径内向指针微移）
+   * 倾斜与磁性的元素位置走缓存（滚动/尺寸变化/卡片展开时刷新），
+   * 事件回调里不再读布局，避免「每帧写 transform + 每次 pointermove
+   * 读 rect」叠加出的强制布局抖动。 */
   const pointer = { x: 0, y: 0, sx: 0, sy: 0, has: false };   // x/y 目标，sx/sy 平滑值
-  const orbs = [];        // { el, depth }
-  const tilts = new Map();// el -> { glare, rx, ry, tx, ty, gx, gy, tgx, tgy }
+  const tilts = new Map();// el -> { left, top, w, h, rx, ry, trx, tryy, gx, gy, tgx, tgy, glare }
   const magnets = [];     // { el, cx, cy, x, y }
+  let PERF_LITE = false;  // 低性能自动降级（持续掉帧触发，见 initPointer）
+
+  /* 位置缓存刷新：滚动防抖合并刷新；卡片展开等即时事件直接刷新 */
+  const refreshFns = [];
+  let refreshTimer = null;
+  function refreshRects() {
+    tilts.forEach((st, el) => {
+      const r = el.getBoundingClientRect();
+      st.left = r.left; st.top = r.top; st.w = r.width; st.h = r.height;
+    });
+    magnets.forEach((m) => {
+      const r = m.el.getBoundingClientRect();
+      m.cx = r.left + r.width / 2;
+      m.cy = r.top + r.height / 2;
+    });
+  }
+  function queueRefreshRects() {
+    clearTimeout(refreshTimer);
+    refreshTimer = setTimeout(refreshRects, 160);
+  }
+  function refreshCardRects() {   // 供卡内交互（展开/收起）后同步调用
+    clearTimeout(refreshTimer);
+    refreshFns.forEach((f) => f());
+  }
 
   function registerTilt(el) {
-    if (REDUCED || !FINE_POINTER || tilts.has(el)) return;   // 触屏不做倾斜追光
+    if (REDUCED || tilts.has(el)) return;
     const glare = el.querySelector('.glare');
-    const st = { glare: glare, rx: 0, ry: 0, trx: 0, tryy: 0, gx: 50, gy: 40, tgx: 50, tgy: 40 };
+    const r0 = el.getBoundingClientRect();   // 注册时布局是干净的，量一次入缓存
+    const auto = AUTO_DEVICE;   // 触屏无指针输入：走自律漂移版倾斜
+    const st = { glare: glare, left: r0.left, top: r0.top, w: r0.width, h: r0.height,
+                 rx: 0, ry: 0, trx: 0, tryy: 0, gx: 50, gy: 40, tgx: 50, tgy: 40,
+                 auto: auto, phase: tilts.size * 2.1, live: !auto, bornAt: null,
+                 visible: true, lastT: null, lastGx: null, lastGy: null };
     tilts.set(el, st);
-
-    el.addEventListener('pointermove', (e) => {
-      const r = el.getBoundingClientRect();
-      const nx = clamp((e.clientX - r.left) / r.width * 2 - 1, -1, 1);
-      const ny = clamp((e.clientY - r.top) / r.height * 2 - 1, -1, 1);
-      st.tryy = nx * 6;            // rotateY 目标
-      st.trx = -ny * 6;            // rotateX 目标
-      st.tgx = clamp((nx + 1) / 2 * 100, 0, 100);
-      st.tgy = clamp((ny + 1) / 2 * 100, 0, 100);
-    });
-    el.addEventListener('pointerleave', () => {
-      st.trx = 0; st.tryy = 0; st.tgx = 50; st.tgy = 40;
-    });
+    if (!auto) {
+      el.addEventListener('pointermove', (e) => {
+        const nx = clamp((e.clientX - st.left) / st.w * 2 - 1, -1, 1);
+        const ny = clamp((e.clientY - st.top) / st.h * 2 - 1, -1, 1);
+        st.tryy = nx * 6;            // rotateY 目标
+        st.trx = -ny * 6;            // rotateX 目标
+        st.tgx = clamp((nx + 1) / 2 * 100, 0, 100);
+        st.tgy = clamp((ny + 1) / 2 * 100, 0, 100);
+      });
+      el.addEventListener('pointerleave', () => {
+        st.trx = 0; st.tryy = 0; st.tgx = 50; st.tgy = 40;
+      });
+      return;
+    }
+    /* 自律版的接管时机：首次进入视口才开始「醒转」——阻尼收位在用户
+       眼前表演，而不是页面加载时在屏外白白放完；等入场揭示的 transform
+       过渡播完再接手，避免逐帧写入掐断浮起入场或双重平滑。 */
+    const goLive = () => {
+      if (st.live) return;
+      st.live = true;
+      el.style.transition = 'box-shadow 0.45s var(--out), background-color 0.45s var(--out)';
+    };
+    if ('IntersectionObserver' in window) {
+      const io = new IntersectionObserver((es) => {
+        es.forEach((en) => {
+          if (!en.isIntersecting) return;
+          io.disconnect();
+          el.addEventListener('transitionend', function onEnd(e) {
+            if (e.target !== el || e.propertyName !== 'transform') return;
+            el.removeEventListener('transitionend', onEnd);
+            goLive();
+          });
+          setTimeout(goLive, 900);   // 兜底：入场已播完/无入场时走这里
+        });
+      }, { threshold: 0.3 });
+      io.observe(el);
+    } else {
+      goLive();
+    }
   }
 
   function registerMagnet(el) {
@@ -287,42 +370,62 @@
     document.querySelectorAll('.tilt').forEach(registerTilt);
     document.querySelectorAll('.magnetic').forEach(registerMagnet);
 
-    if (!IS_TOUCH) {
-      window.addEventListener('pointermove', (e) => {
+    // 屏外的倾斜卡停写 transform：省样式抖动与合成开销（不可见，零视觉差）
+    if ('IntersectionObserver' in window) {
+      const vio = new IntersectionObserver((es) => {
+        es.forEach((en) => {
+          const stv = tilts.get(en.target);
+          if (stv) stv.visible = en.isIntersecting;
+        });
+      }, { threshold: 0.02 });
+      tilts.forEach((st, el) => vio.observe(el));
+    }
+
+    // 视差目标 + 磁性指针坐标共用一个监听（触屏设备鼠标坐标照常供给磁性）
+    let mouseVX = 0, mouseVY = 0;
+    window.addEventListener('pointermove', (e) => {
+      if (!IS_TOUCH) {
         pointer.x = (e.clientX / window.innerWidth) * 2 - 1;
         pointer.y = (e.clientY / window.innerHeight) * 2 - 1;
         pointer.has = true;
-      }, { passive: true });
-    }
-
-    // 磁性按钮的中心缓存（滚动/缩放后刷新，避免逐帧重排）
-    let rectTimer = null;
-    function refreshRects() {
-      magnets.forEach((m) => {
-        const r = m.el.getBoundingClientRect();
-        m.cx = r.left + r.width / 2;
-        m.cy = r.top + r.height / 2;
-      });
-    }
-    window.addEventListener('scroll', () => {
-      clearTimeout(rectTimer);
-      rectTimer = setTimeout(refreshRects, 160);
+      }
+      mouseVX = e.clientX; mouseVY = e.clientY;
     }, { passive: true });
-    window.addEventListener('resize', refreshRects);
-    // 磁性目标随页面滚动变化，直接在循环里用缓存中心 + 当前指针视口坐标
-    let mouseVX = 0, mouseVY = 0;
-    window.addEventListener('pointermove', (e) => { mouseVX = e.clientX; mouseVY = e.clientY; }, { passive: true });
+
+    refreshFns.push(refreshRects);
+    window.addEventListener('scroll', queueRefreshRects, { passive: true });
+    window.addEventListener('resize', refreshCardRects);
 
     if (REDUCED) return;   // 移动端也进入本循环：动画固定播放（自律漂移）
 
+    const heroBg = document.querySelector('.hero-bg');   // 常驻元素，一次查找
     const R = 110;   // 磁性吸附半径
     // 移动端 30fps 节流（桌面满帧）
     const PULSE_MS = FINE_POINTER ? 0 : 33;
     let lastPulse = 0;
     let lastSx = 99, lastSy = 99;   // 脏检查：无变化不写 DOM
+    let lastFrameT = 0, slowFrames = 0;   // 低性能降级监测
     function frame(now) {
       if (PULSE_MS && now - lastPulse < PULSE_MS - 3) { requestAnimationFrame(frame); return; }
       lastPulse = now;
+
+      // 低性能自动降级：帧间隔持续超支约 3 秒（累计 70 个慢帧，快帧回收）
+      // 才进入 perf-lite——健康设备永不触发，默认观感不变。
+      if (!PERF_LITE) {
+        if (document.body.classList.contains('perf-lite')) {
+          PERF_LITE = true;   // 外部（调试）已置 lite：JS 侧同步跟随
+        } else if (lastFrameT) {
+          const dt = now - lastFrameT;
+          if (dt > 38 && dt < 400) slowFrames++;       // 排除切后台回来的巨帧
+          else if (dt <= 38 && slowFrames) slowFrames--;
+          if (slowFrames > 70) {
+            PERF_LITE = true;
+            document.body.classList.add('perf-lite');
+          }
+        }
+        lastFrameT = now;
+      }
+
       // 移动端动画固定播放：利萨如曲线自律漂移（无需任何交互）
       if (IS_TOUCH) {
         const tt = now / 1000;
@@ -335,13 +438,7 @@
       pointer.sy = lerp(pointer.sy, pointer.has ? pointer.y : 0, 0.055);
       if (Math.abs(pointer.sx - lastSx) > 0.0004 || Math.abs(pointer.sy - lastSy) > 0.0004) {
         lastSx = pointer.sx; lastSy = pointer.sy;
-        orbs.forEach((o) => {
-          o.el.style.transform =
-            'translate3d(' + (pointer.sx * o.depth * 620).toFixed(2) + 'px,'
-                          + (pointer.sy * o.depth * 460).toFixed(2) + 'px,0)';
-        });
         // 背景反向微移（与内层 img 的运镜动画分层叠加）
-        const heroBg = document.querySelector('.hero-bg');
         if (heroBg) {
           heroBg.style.transform =
             'scale(1.045) translate3d(' + (pointer.sx * -12).toFixed(2) + 'px,'
@@ -349,27 +446,50 @@
         }
       }
 
-      // 3D 倾斜 + 追光（首次介入时收掉 CSS 的 transform 过渡，避免双重平滑）
+      // 3D 倾斜 + 追光（指针版首次介入时收掉 CSS 的 transform 过渡，避免双重平滑）
       tilts.forEach((st, el) => {
+        if (!st.visible) return;             // 屏外卡：停写 transform，零合成开销
+        if (st.auto) {
+          if (!st.live) return;   // 等首次进入视口（registerTilt 里已安排醒转时机）
+          if (PERF_LITE) {        // 低性能模式：收敛到静止，弹簧自然落平
+            st.trx = 0; st.tryy = 0; st.tgx = 50; st.tgy = 40;
+          } else {
+            // 自律漂移：慢速利萨如驱动倾斜，流光位置由倾斜角反推——
+            // 与桌面「光随指针、卡随光」同一几何关系，光贴着倾斜面走。
+            // 阻尼收位：刚接管时振幅放大两倍余（头几次摆动确保可感），
+            // 指数衰减落回常驻幅度；纯时间函数，零额外开销。
+            const tt = now / 1000;
+            if (st.bornAt === null) st.bornAt = now;
+            const env = 1 + 1.2 * Math.exp(-(now - st.bornAt) / 2800);
+            const ox = Math.sin(tt * 0.7 + st.phase);
+            const oy = Math.cos(tt * 0.53 + st.phase * 1.7);
+            st.trx = ox * 3.6 * env;
+            st.tryy = oy * 4.6 * env;
+            st.tgx = 50 + oy * 38;
+            st.tgy = 42 - ox * 26;
+          }
+        }
         st.rx = lerp(st.rx, st.trx, 0.12);
         st.ry = lerp(st.ry, st.tryy, 0.12);
         st.gx = lerp(st.gx, st.tgx, 0.14);
         st.gy = lerp(st.gy, st.tgy, 0.14);
-        const lifting = (Math.abs(st.rx) + Math.abs(st.ry)) > 0.2;
+        const lifting = !st.auto && (Math.abs(st.rx) + Math.abs(st.ry)) > 0.2;
         if (lifting && !st.engaged) {
           st.engaged = true;
           el.style.transition = 'box-shadow 0.45s var(--out), background-color 0.45s var(--out)';
         }
-        el.style.transform =
-          'perspective(900px) rotateX(' + st.rx.toFixed(3) + 'deg) rotateY(' + st.ry.toFixed(3) + 'deg)'
+        // 脏检查：值不变不写 style，静止卡片零样式抖动
+        const tstr = 'perspective(900px) rotateX(' + st.rx.toFixed(3) + 'deg) rotateY(' + st.ry.toFixed(3) + 'deg)'
           + (lifting ? ' translateY(-4px)' : '');
+        if (tstr !== st.lastT) { st.lastT = tstr; el.style.transform = tstr; }
         if (st.glare) {
-          st.glare.style.setProperty('--gx', st.gx.toFixed(1) + '%');
-          st.glare.style.setProperty('--gy', st.gy.toFixed(1) + '%');
+          const gx = st.gx.toFixed(1), gy = st.gy.toFixed(1);
+          if (gx !== st.lastGx) { st.lastGx = gx; st.glare.style.setProperty('--gx', gx + '%'); }
+          if (gy !== st.lastGy) { st.lastGy = gy; st.glare.style.setProperty('--gy', gy + '%'); }
         }
       });
 
-      // 磁性吸附
+      // 磁性吸附（磁性目标随页面滚动变化，用缓存中心 + 当前指针视口坐标）
       magnets.forEach((m) => {
         const dx = mouseVX - m.cx, dy = mouseVY - m.cy;
         const d = Math.hypot(dx, dy);
@@ -441,6 +561,41 @@
     });
   }
 
+  /* ================= 地址栏深链接 =================
+   * 三屏各占一个 hash（#/ #creation #projects）：滚动到哪屏地址栏跟到哪屏
+   * （replaceState 不产生历史噪音）；带 hash 打开/刷新时瞬跳直达该屏。 */
+  function initHashNav() {
+    const map = { '': 's-hero', creation: 's-creation', projects: 's-projects' };
+    const nameOf = {};
+    Object.keys(map).forEach((k) => { nameOf[map[k]] = k; });
+
+    const h = decodeURIComponent(location.hash.slice(1));
+    if (map[h]) {
+      const el = byId(map[h]);
+      // 载入期定位必须 instant：绕过 CSS 的 smooth（深链接要的是直达，
+      // 且布局完成前的平滑滚动在部分环境会被丢掉）
+      if (el) window.scrollTo({ top: el.offsetTop, behavior: 'instant' });
+    }
+
+    if (!('IntersectionObserver' in window)) return;
+    let cur = null;
+    const io = new IntersectionObserver((es) => {
+      es.forEach((en) => {
+        if (en.isIntersecting && en.intersectionRatio >= 0.6) {
+          const v = nameOf[en.target.id];
+          if (v !== undefined && v !== cur) {
+            cur = v;
+            history.replaceState(null, '', v ? '#' + v : location.pathname + location.search);
+          }
+        }
+      });
+    }, { threshold: 0.6 });
+    Object.keys(map).forEach((k) => {
+      const el = byId(map[k]);
+      if (el) io.observe(el);
+    });
+  }
+
   /* ================= 视频背景自动适配 =================
    * 检测 assets/hero-video.mp4：存在则启用全页固定播放的视频背景、
    * 淡出照片，并停用波光层（视频自带动态）；不存在则维持照片 + 波光。 */
@@ -473,9 +628,10 @@
     if (!canvas || !img || REDUCED) return;
     const ctx = canvas.getContext('2d');
     let W = 0, H = 0, horizonY = 0, sunX = 0;
+    let forceDpr = 0, densityFactor = 1;      // 低端机降级参数（0/1 = 不干预）
 
     function resize() {
-      const dpr = window.innerWidth < 760 ? 1.5 : Math.min(2, window.devicePixelRatio || 1);
+      const dpr = forceDpr || (window.innerWidth < 760 ? 1.5 : Math.min(2, window.devicePixelRatio || 1));
       W = canvas.clientWidth; H = canvas.clientHeight;
       canvas.width = W * dpr; canvas.height = H * dpr;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -491,7 +647,7 @@
     const glints = [], dust = [];
     function seed() {
       glints.length = 0;
-      const n = Math.round(clamp(W / 24, 20, 48));   // 碎金密度
+      const n = Math.round(clamp(W / 24, 20, 48) * densityFactor);   // 碎金密度
       for (let i = 0; i < n; i++) {
         const nearSun = Math.random() < 0.45;
         const x = nearSun ? sunX + (Math.random() - 0.5) * W * 0.34 : Math.random() * W;
@@ -522,6 +678,7 @@
     const t0 = performance.now();
     const FRAME_MS = window.innerWidth < 760 ? 33 : 0;   // 手机 30fps 节流
     let lastDraw = 0;
+    let lastPerfT = 0, slowStreak = 0, degraded = false;
 
     const orbEl = document.querySelector('.orb-c');
     const videoEl = byId('hero-video');
@@ -582,8 +739,26 @@
 
     function frame(now) {
       if (!running) return;
+      if (document.body.classList.contains('perf-lite')) { stop(); return; }   // 低性能模式：波光层让位
       if (FRAME_MS && now - lastDraw < FRAME_MS - 3) { requestAnimationFrame(frame); return; }
       lastDraw = now;
+
+      // 低端机自适应：帧间隔持续超 42ms（低于约 24fps）达 3 秒才降级一次，
+      // 只降 DPR 与粒子密度——正常设备永不触发，效果不变。
+      if (!degraded) {
+        if (lastPerfT) {
+          const dt = now - lastPerfT;
+          if (dt > 42 && dt < 400) slowStreak++;       // 排除切后台回来的巨帧
+          else if (dt <= 42) slowStreak = Math.max(0, slowStreak - 2);
+          if (slowStreak > 90) {
+            degraded = true;
+            forceDpr = 1; densityFactor = 0.6;
+            resize(); seed();
+          }
+        }
+        lastPerfT = now;
+      }
+
       const t = (now - t0) / 1000;
       ctx.clearRect(0, 0, W, H);
       if (!videoOn()) {
@@ -640,6 +815,7 @@
   initReveal();
   initProjects();
   initScrollHint();
+  initHashNav();
   initOrbNav();
   initPointer();
   initHeroVideo();

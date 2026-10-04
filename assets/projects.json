@@ -1,0 +1,45 @@
+{
+  "generatedAt": "2026-10-04T07:51:11Z",
+  "repos": [
+    {
+      "name": "cat-accounting-app",
+      "html_url": "https://github.com/Jatt9520/cat-accounting-app",
+      "description": "🐱 猫咪记账 - 可爱风格的安卓记账应用",
+      "language": "JavaScript",
+      "stargazers_count": 1,
+      "pushed_at": "2026-07-15T06:20:37Z"
+    },
+    {
+      "name": "legal-contract-drafter",
+      "html_url": "https://github.com/Jatt9520/legal-contract-drafter",
+      "description": "法律合同拟写助手 - 支持15种合同模板和AI智能生成",
+      "language": "HTML",
+      "stargazers_count": 1,
+      "pushed_at": "2026-07-15T06:24:03Z"
+    },
+    {
+      "name": "MarkdownReader",
+      "html_url": "https://github.com/Jatt9520/MarkdownReader",
+      "description": "A modern Markdown reader with live preview, dark/light themes, and PDF export",
+      "language": "Python",
+      "stargazers_count": 1,
+      "pushed_at": "2026-07-15T12:28:23Z"
+    },
+    {
+      "name": "quasardb",
+      "html_url": "https://github.com/Jatt9520/quasardb",
+      "description": null,
+      "language": "TypeScript",
+      "stargazers_count": 1,
+      "pushed_at": "2026-08-13T13:59:50Z"
+    },
+    {
+      "name": "video-spider-installer",
+      "html_url": "https://github.com/Jatt9520/video-spider-installer",
+      "description": "Video Spider 一键安装脚本 v3.3 (fixed: block parsing crash, GBK encoding, silent window close)",
+      "language": "Batchfile",
+      "stargazers_count": 1,
+      "pushed_at": "2026-08-09T15:39:31Z"
+    }
+  ]
+}

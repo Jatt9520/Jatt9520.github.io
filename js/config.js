@@ -39,12 +39,11 @@ const CONFIG = {
     githubUrl: 'https://github.com/Jatt9520'
   },
 
-  /* ---------- 第三屏：我的项目（GitHub 实时拉取） ---------- */
+  /* ---------- 第三屏：我的项目（读静态烤制数据，GitHub Actions 每日刷新） ---------- */
   projects: {
     kicker: 'PROJECTS',
     title: '我的项目',
-    owner: 'Jatt9520',
-    apiBase: 'https://api.github.com',
+    dataFile: './assets/projects.json',
     repos: [                       // 按固定顺序展示的仓库
       'quasardb',
       'MarkdownReader',
@@ -53,6 +52,27 @@ const CONFIG = {
     repoDescs: {                   // 描述兜底：GitHub 未填 description 时使用
       quasardb: 'From-scratch TypeScript 关系型数据库引擎 · 零依赖，覆盖 SQL 前端、查询优化、执行引擎、页式存储、B+ 树索引与事务'
     },
+    highlights: {                  // 「看看细节」展开的技术清单（纯清单、不叙述）
+      quasardb: [
+        'SQL 前端 · 完整语法解析',
+        '查询优化器 + 执行引擎',
+        '页式存储 · B+ 树索引',
+        '事务 · 零依赖纯 TypeScript'
+      ],
+      MarkdownReader: [
+        'QWebEngineView 实时渲染预览',
+        'Pygments 代码高亮',
+        '深浅色主题 · PDF 导出',
+        '正则查找 · 拖拽打开 · 全键盘操作'
+      ],
+      'video-spider-installer': [
+        '26 个平台视频去水印服务部署',
+        '静默安装 / 更新 / 卸载参数化',
+        '自定义目录 · 端口 · 代理',
+        'GBK 编码与括号管道转义修复'
+      ]
+    },
+    detailLabel: '看看细节',
     noDesc: '暂无描述',
     fallback: '糟糕，项目加载失败了，去 GitHub 主页看看吧'
   },

@@ -8,25 +8,7 @@
   <!-- 相对路径基准：适配 GitHub Pages 子路径部署 -->
   <base href="./">
   <title>跨世代 · Liquid Glass</title>
-  <link rel="stylesheet" href="css/style.css?v=20261052">
-  <!--
-    =====================================================================
-    GitHub Pages 部署步骤
-    ---------------------------------------------------------------------
-    1. 在 GitHub 新建仓库，仓库名：Jatt9520.github.io
-    2. 上传全部文件（注意包含 assets/ 目录）：
-         git add .
-         git commit -m "refactor: liquid glass showcase"
-         git push
-    3. 仓库页 -> Settings -> Pages -> 选择 main 分支 / 根目录
-    4. 访问 https://Jatt9520.github.io（push 后 1~2 分钟自动发布）
-
-    说明：
-    · 首屏风景 assets/hero.jpg（Unsplash 免费授权，可整图替换）
-    · 液态玻璃为纯 CSS 材质（磨砂 + 折射描边 + 追光），无图片资源
-    · 替换风景图：直接覆盖 assets/hero.jpg 即可，无需改代码
-    =====================================================================
-  -->
+  <link rel="stylesheet" href="css/style.css?v=20261066">
 </head>
 <body>
 
@@ -48,18 +30,19 @@
       <h1 class="identity-name" id="hero-name"></h1>
       <p class="identity-motto" id="hero-motto"></p>
     </div>
-
-    <!-- 展开的自我介绍玻璃卡（常驻渲染，玻璃材质预热在位） -->
-    <div class="about-card glass-panel" id="about-card">
-      <p class="about-kicker" id="about-kicker"></p>
-      <h2 class="about-title" id="about-title"></h2>
-      <p class="about-text" id="about-text"></p>
-      <div class="about-actions">
-        <a class="ghost-btn" id="about-github" target="_blank" rel="noopener"></a>
-        <button class="ghost-btn" id="about-fold" type="button">收起</button>
-      </div>
-    </div>
   </header>
+
+  <!-- 展开的自我介绍玻璃卡：挂在 body 层（身份栏自带模糊，会把子卡的
+       背板采样圈死在自己的合成根里，字透出来没有模糊），fixed 定位到卡下 -->
+  <div class="about-card glass-panel" id="about-card">
+    <p class="about-kicker" id="about-kicker"></p>
+    <h2 class="about-title" id="about-title"></h2>
+    <p class="about-text" id="about-text"></p>
+    <div class="about-actions">
+      <a class="ghost-btn" id="about-github" target="_blank" rel="noopener"></a>
+      <button class="ghost-btn" id="about-fold" type="button">收起</button>
+    </div>
+  </div>
 
   <!-- 快捷导航球：固定悬浮，点击弹出快捷菜单（回顶部 / 初衷 / 项目 / GitHub） -->
   <div class="orb-anchor" id="orb-anchor">
@@ -175,7 +158,7 @@
     </div>
   </div>
 
-  <script src="js/config.js?v=20261052"></script>
-  <script src="js/main.js?v=20261052"></script>
+  <script src="js/config.js?v=20261066"></script>
+  <script src="js/main.js?v=20261066"></script>
 </body>
 </html>

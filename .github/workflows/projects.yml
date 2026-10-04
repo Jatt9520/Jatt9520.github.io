@@ -1,0 +1,51 @@
+name: 更新项目数据
+
+# 每天拉一次 GitHub API，把仓库数据烤成静态 JSON 提交进仓库；
+# 页面只读本地 JSON，不再受匿名 API 限额（60 次/小时）影响。
+# 也可在 Actions 页面手动触发（workflow_dispatch）。
+
+on:
+  schedule:
+    - cron: '17 3 * * *'   # 每天 UTC 3:17（北京时间 11:17）
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: bake-projects
+  cancel-in-progress: true
+
+jobs:
+  bake:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 烤制 projects.json
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OWNER: Jatt9520
+        run: |
+          set -euo pipefail
+          curl -sS -f \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/users/${OWNER}/repos?per_page=100" -o /tmp/repos.json
+          jq --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '{
+            generatedAt: $ts,
+            repos: [ .[] | select(.fork == false and .name != "Jatt9520.github.io")
+                     | { name, html_url, description, language, stargazers_count, pushed_at } ]
+          }' /tmp/repos.json > assets/projects.json
+
+      - name: 有变化则提交
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add assets/projects.json
+          if git diff --cached --quiet; then
+            echo "项目数据无变化，跳过提交"
+          else
+            git commit -m "chore: 自动更新项目数据"
+            git push
+          fi
