@@ -548,6 +548,7 @@ body.dark .kicker { color: #7fc4c9; }
   font-weight: 800;
   letter-spacing: 0.12em;
 }
+.scene-title .char { display: inline-block; }   /* 逐字入场：字符需独立变换 */
 
 /* ---------- 全页天幕：所有屏共享同一底色，翻页零接缝 ----------
    底层 .page-flow 为缓慢流动的整页渐变；上层 .page-aurora 是

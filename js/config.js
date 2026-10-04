@@ -34,7 +34,7 @@ const CONFIG = {
   creation: {
     kicker: 'ORIGINS',
     title: '创作初衷',
-    text: 'Hi 你好，欢迎访问我的网站，我是一名高中牲。做这个网站，是因为想把「喜欢」变成「作品」——用原生的 HTML、CSS 与 JavaScript，把液态玻璃的质感做到极致，如果这里有什么打动了你，或者你有什么好的建议，欢迎来找我聊聊。',
+    text: 'Hi 你好，欢迎访问我的网站，我是一名高中生。做这个网站，是因为想把「喜欢」变成「作品」——用原生的 HTML、CSS 与 JavaScript，把液态玻璃的质感做到极致，如果这里有什么打动了你，或者你有什么好的建议，欢迎来找我聊聊。',
     githubLabel: 'GitHub',
     githubUrl: 'https://github.com/Jatt9520'
   },
@@ -60,10 +60,10 @@ const CONFIG = {
         '事务 · 零依赖纯 TypeScript'
       ],
       MarkdownReader: [
-        'QWebEngineView 实时渲染预览',
-        'Pygments 代码高亮',
-        '深浅色主题 · PDF 导出',
-        '正则查找 · 拖拽打开 · 全键盘操作'
+        'QTextBrowser 轻量预览 · 免浏览器内核秒启动',
+        'AI 助手 · 自备 Key 兼容 OpenAI 系接口',
+        '标题大纲跳转 · 任务列表 · 本地图片渲染',
+        'PDF / HTML 双格式导出 · GBK 编码自动识别'
       ],
       'video-spider-installer': [
         '26 个平台视频去水印服务部署',

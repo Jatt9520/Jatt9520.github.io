@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-04T07:51:11Z",
+  "generatedAt": "2026-10-04T09:48:49Z",
   "repos": [
     {
       "name": "cat-accounting-app",
@@ -20,10 +20,10 @@
     {
       "name": "MarkdownReader",
       "html_url": "https://github.com/Jatt9520/MarkdownReader",
-      "description": "A modern Markdown reader with live preview, dark/light themes, and PDF export",
+      "description": "A modern Markdown reader with live preview, theme-aware syntax highlighting, heading outline, and PDF export",
       "language": "Python",
       "stargazers_count": 1,
-      "pushed_at": "2026-07-15T12:28:23Z"
+      "pushed_at": "2026-10-04T09:30:31Z"
     },
     {
       "name": "quasardb",

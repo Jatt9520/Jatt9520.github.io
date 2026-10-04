@@ -19,6 +19,8 @@
   const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const FINE_POINTER = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
   const IS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;   // 手机/平板
+  // GSAP（assets/vendor 自托管）：加载失败或用户偏好减弱动效时全部回退 CSS 路径
+  const USE_GSAP = typeof window.gsap !== 'undefined' && !REDUCED;
   // 调试：?autotilt=1 强制自律倾斜 / =0 强制指针倾斜；不传则按设备自动判定。
   // 判定用「主指针为粗」或「不支持悬停+精确指针」：部分安卓浏览器会谎报 hover，
   // 单看 (hover:hover)&&(pointer:fine) 会把手机误判成桌面，导致自律动效整体失效。
@@ -183,6 +185,33 @@
   }
 
   /* ================= 滚动揭示（进入视口浮起） ================= */
+  /* Split/Blur Text：场景标题拆字，进入视口时逐字模糊浮现 */
+  function initTitleChars() {
+    if (!USE_GSAP) return;
+    document.querySelectorAll('.scene-title').forEach((el) => {
+      const text = el.textContent;
+      el.setAttribute('aria-label', text);          // 完整文本留给读屏
+      el.textContent = '';
+      const frag = document.createDocumentFragment();
+      [...text].forEach((ch) => {
+        const span = document.createElement('span');
+        span.className = 'char';
+        span.setAttribute('aria-hidden', 'true');
+        span.textContent = ch;
+        frag.appendChild(span);
+      });
+      el.appendChild(frag);
+    });
+  }
+  function playTitleChars(el) {
+    const chars = el.querySelectorAll('.char');
+    if (!chars.length) return;
+    gsap.fromTo(chars,
+      { opacity: 0, y: 16, filter: 'blur(10px)' },
+      { opacity: 1, y: 0, filter: 'blur(0px)', duration: 0.75, stagger: 0.06,
+        ease: 'power3.out', overwrite: true, clearProps: 'filter' });
+  }
+
   function initReveal() {
     const els = Array.from(document.querySelectorAll('.reveal'));
     // 同屏内的元素按序错峰
@@ -194,10 +223,15 @@
     if (!('IntersectionObserver' in window)) { els.forEach((el) => el.classList.add('in')); return; }
     const io = new IntersectionObserver((entries) => {
       entries.forEach((en) => {
-        if (en.isIntersecting) { en.target.classList.add('in'); io.unobserve(en.target); }
+        if (en.isIntersecting) {
+          en.target.classList.add('in');
+          if (en.target.classList.contains('scene-title')) playTitleChars(en.target);
+          io.unobserve(en.target);
+        }
       });
     }, { threshold: 0.22 });
     els.forEach((el) => io.observe(el));
+    document.querySelectorAll('.scene-title').forEach((el) => io.observe(el));
   }
 
   /* ================= 项目区（读本地烤制数据 + 卡内细节展开） ================= */
@@ -253,10 +287,34 @@
         registerTilt(card);          // 3D 倾斜 + 追光
 
         const toggle = card.querySelector('.project-toggle');
+        const list = card.querySelector('.project-points');
         if (toggle) toggle.addEventListener('click', () => {
-          const open = toggle.getAttribute('aria-expanded') === 'true';
-          toggle.setAttribute('aria-expanded', String(!open));
-          card.classList.toggle('expanded', !open);
+          const opening = toggle.getAttribute('aria-expanded') !== 'true';
+          toggle.setAttribute('aria-expanded', String(opening));
+          if (opening) {
+            // Size Morph：高度先长出来，清单条目自下逐条浮入
+            card.classList.add('expanded');
+            if (USE_GSAP && list) {
+              gsap.killTweensOf(list.children);
+              gsap.fromTo(list.children,
+                { opacity: 0, y: 10 },
+                { opacity: 1, y: 0, duration: 0.4, stagger: 0.055, ease: 'power2.out', delay: 0.1,
+                  clearProps: 'opacity,transform' });
+            }
+          } else if (USE_GSAP && list) {
+            // Reverse Collapse 两段式：先收清单条目，再缩短卡片高度
+            gsap.killTweensOf(list.children);
+            gsap.to(list.children,
+              { opacity: 0, y: 6, duration: 0.16, stagger: { each: 0.03, from: 'end' }, ease: 'power1.in',
+                onComplete: () => {
+                  card.classList.remove('expanded');
+                  gsap.set(list.children, { clearProps: 'opacity,transform' });
+                  refreshCardRects();
+                  setTimeout(refreshCardRects, 560);
+                } });
+          } else {
+            card.classList.remove('expanded');
+          }
           // 卡片高度在过渡中变化：立即与过渡结束后各刷新一次位置缓存
           refreshCardRects();
           setTimeout(refreshCardRects, 560);
@@ -511,27 +569,62 @@
     window.addEventListener('load', refreshRects);
   }
 
-  /* ================= 快捷导航球：点击弹出快捷菜单 ================= */
+  /* ================= 快捷导航球：点击弹出快捷菜单 =================
+   * GSAP 路径：展开时条目自珠心绽放（自下而上），收起时反向逐层
+   * 缩回珠心（Reverse Collapse，先进后出）；CSS 路径为降级保底。 */
   function initOrbNav() {
     const anchor = byId('orb-anchor');
     const orb = byId('orb-nav');
     const menu = byId('orb-menu');
+    const items = [...menu.querySelectorAll('.orb-item')];
     let open = false;
     let timer = null;
 
+    if (USE_GSAP) items.forEach((el) => { el.style.transition = 'none'; });   // 防止与 GSAP 双重平滑
+
+    // 条目与珠心的偏移：收起时沿来路缩回，展开时自珠子生长
+    function orbOffsets() {
+      const o = orb.getBoundingClientRect();
+      return items.map((el) => {
+        const r = el.getBoundingClientRect();
+        return { x: (o.left + o.width / 2) - (r.left + r.width / 2),
+                 y: (o.top + o.height / 2) - (r.top + r.height / 2) };
+      });
+    }
+
     const show = () => {
       clearTimeout(timer);
+      if (USE_GSAP) gsap.killTweensOf(items);
       menu.hidden = false;
       void menu.offsetWidth;                 // 强制回流：过渡从收起态开始
       anchor.classList.add('open');
       orb.setAttribute('aria-expanded', 'true');
+      if (USE_GSAP) {
+        const off = orbOffsets();
+        gsap.fromTo(items,
+          { opacity: 0, scale: 0.35, x: (i) => off[i].x, y: (i) => off[i].y },
+          { opacity: 1, scale: 1, x: 0, y: 0, duration: 0.45, ease: 'back.out(1.7)',
+            stagger: { each: 0.045, from: 'end' }, clearProps: 'transform' });
+      }
       open = true;
     };
     const hide = () => {
       if (!open) return;
       anchor.classList.remove('open');
       orb.setAttribute('aria-expanded', 'false');
-      timer = setTimeout(() => { menu.hidden = true; }, 420);
+      if (USE_GSAP) {
+        gsap.killTweensOf(items);
+        const off = orbOffsets();
+        gsap.to(items,
+          { opacity: 0, scale: 0.35, x: (i) => off[i].x, y: (i) => off[i].y,
+            duration: 0.32, ease: 'power2.in', stagger: { each: 0.04, from: 'start' },
+            onComplete: () => {
+              menu.hidden = true;
+              gsap.set(items, { clearProps: 'opacity,transform' });
+            } });
+      } else {
+        timer = setTimeout(() => { menu.hidden = true; }, 420);
+      }
       open = false;
     };
 
@@ -809,6 +902,7 @@
   /* ================= 启动 ================= */
   initTheme();
   mountStatic();
+  initTitleChars();
   initGlassToggle();
   initWelcome();
   initAvatar();
