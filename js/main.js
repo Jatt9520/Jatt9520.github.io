@@ -119,6 +119,11 @@
     byId('projects-kicker').textContent = C.projects.kicker;
     byId('projects-title').textContent = C.projects.title;
 
+    byId('showcase-kicker').textContent = C.showcase.kicker;
+    byId('showcase-title').textContent = C.showcase.title;
+    byId('showcase-sub').textContent = C.showcase.sub;
+    byId('showcase-end').textContent = C.showcase.end;
+
     const fgh = byId('footer-github');
     fgh.textContent = C.footer.githubLabel;
     fgh.href = C.footer.githubUrl;
@@ -656,10 +661,11 @@
   }
 
   /* ================= 地址栏深链接 =================
-   * 三屏各占一个 hash（#/ #creation #projects）：滚动到哪屏地址栏跟到哪屏
-   * （replaceState 不产生历史噪音）；带 hash 打开/刷新时瞬跳直达该屏。 */
+   * 四屏各占一个 hash（#/ #creation #projects #showcase）：滚动到哪屏
+   * 地址栏跟到哪屏（replaceState 不产生历史噪音）；带 hash 打开/刷新时
+   * 瞬跳直达该屏。 */
   function initHashNav() {
-    const map = { '': 's-hero', creation: 's-creation', projects: 's-projects' };
+    const map = { '': 's-hero', creation: 's-creation', projects: 's-projects', showcase: 's-showcase' };
     const nameOf = {};
     Object.keys(map).forEach((k) => { nameOf[map[k]] = k; });
 

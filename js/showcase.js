@@ -1,16 +1,16 @@
 /**
  * ============================================================
- * showcase.js · 炫技区（独立页）
+ * showcase.js · 炫技区（主站第四屏，挂在 #s-showcase 场景内）
  * ------------------------------------------------------------
  * 五张会动的玻璃卡：
  *   ① 容器变形 7 连 —— GSAP 状态机（上一步/下一步/自动轮播/点画面推进）
- *   ② 金属漆笔刷   —— Canvas 笔迹（事件驱动，不占 rAF）
- *   ③ 磁吸线条     —— Canvas 指针物理（铁屑转向）
- *   ④ 碎金星野     —— Canvas 粒子（金屑上浮 + 闪烁）
- *   ⑤ 流场丝带     —— Canvas 流场（指针搅动漩涡）
- * 性能红线：IO 0.12 滚出即停 / visibilitychange 停 /
+ *   ② 金属漆笔刷   —— Canvas 厚漆笔触（预渲染印章 + 湿漆高光，事件驱动不占 rAF）
+ *   ③ 磁吸线条     —— Canvas 指针物理（铁屑转向；触屏拖动/点按都生效）
+ *   ④ 碎金星野     —— Canvas 粒子（星云 + 金屑 + 双层星 + 流星 + 指针视差）
+ *   ⑤ 流场丝带     —— Canvas 流场（预热带出满屏丝带河，指针搅动漩涡）
+ * 性能红线：IO 0.12 滚出即停 / visibilitychange 停 / perf-lite 让位 /
  *   resize 重置 / DPR ≤ 1.5 / 减弱动态=静态单帧 / 交互画布 touch-action:none
- * 主题与材质跟随主站的选择（同一 localStorage 键）。
+ * 主题 / 材质 / 揭示 / 标题逐字归 main.js 管，这里只管五张卡。
  * ============================================================
  */
 (function () {
@@ -18,72 +18,18 @@
 
   const byId = (id) => document.getElementById(id);
   const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
-  // 调试：?reduced=1 强制减弱动态（看各引擎的静态单帧）/ =0 强制完整动效；
-  // 不传则按系统偏好。与主站 ?autotilt= 参数同一套路。
+  // 调试：?reduced=1 强制减弱动态（看各引擎静态单帧）/ =0 强制完整动效
   const REDUCED_PARAM = (location.search.match(/[?&]reduced=(0|1)/) || [])[1];
   const REDUCED = REDUCED_PARAM ? REDUCED_PARAM === '1'
     : window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const COARSE = window.matchMedia('(pointer: coarse)').matches;
   const USE_GSAP = typeof window.gsap !== 'undefined' && !REDUCED;
-  // 主题/材质键与主站 config.js 保持一致（本页不加载 config.js）
-  const THEME_KEY = 'theme_mode';
-  const GLASS_KEY = 'glass_mode';
 
-  /* ================= 主题与材质：跟随主站 ================= */
-  const palette = { ink: 'rgba(23,38,43,0.36)', hotLine: 'rgba(61,134,141,' };
-  function refreshPalette() {
-    const dark = document.body.classList.contains('dark');
-    palette.ink = dark ? 'rgba(230,240,242,0.4)' : 'rgba(23,38,43,0.36)';
-    palette.hotLine = dark ? 'rgba(143,208,213,' : 'rgba(61,134,141,';
-  }
-  function initTheme() {
-    const mq = window.matchMedia('(prefers-color-scheme: dark)');
-    const apply = () => {
-      const mode = localStorage.getItem(THEME_KEY) || 'auto';
-      document.body.classList.toggle('dark', mode === 'dark' || (mode === 'auto' && mq.matches));
-      refreshPalette();
-    };
-    const onSys = () => { if ((localStorage.getItem(THEME_KEY) || 'auto') === 'auto') apply(); };
-    if (mq.addEventListener) mq.addEventListener('change', onSys);
-    else if (mq.addListener) mq.addListener(onSys);
-    apply();
-    // 玻璃材质：主站里没关过就开启（body.glass-enabled 缺席 = 实底样式）
-    if (localStorage.getItem(GLASS_KEY) !== 'disabled') document.body.classList.add('glass-enabled');
-  }
-
-  /* ================= 滚动揭示 + 标题逐字 ================= */
-  function initReveal() {
-    const els = Array.from(document.querySelectorAll('.reveal'));
-    els.forEach((el, i) => el.style.setProperty('--rd', (i * 0.08).toFixed(2) + 's'));
-    const title = document.querySelector('.scene-title');
-    if (USE_GSAP && title) {
-      const text = title.textContent;
-      title.setAttribute('aria-label', text);          // 完整文本留给读屏
-      title.textContent = '';
-      [...text].forEach((ch) => {
-        const s = document.createElement('span');
-        s.className = 'char';
-        s.setAttribute('aria-hidden', 'true');
-        s.textContent = ch;
-        title.appendChild(s);
-      });
-      gsap.fromTo(title.querySelectorAll('.char'),
-        { opacity: 0, y: 16, filter: 'blur(10px)' },
-        { opacity: 1, y: 0, filter: 'blur(0px)', duration: 0.75, stagger: 0.06,
-          ease: 'power3.out', delay: 0.15, clearProps: 'filter' });
-    }
-    if (!('IntersectionObserver' in window)) { els.forEach((el) => el.classList.add('in')); return; }
-    const io = new IntersectionObserver((es) => {
-      es.forEach((en) => {
-        if (en.isIntersecting) { en.target.classList.add('in'); io.unobserve(en.target); }
-      });
-    }, { threshold: 0.15 });
-    els.forEach((el) => io.observe(el));
-  }
+  const perfLite = () => document.body.classList.contains('perf-lite');
 
   /* ================= 画布引擎骨架 =================
-   * 统一接管：尺寸/DPR、IO 滚出即停、切后台停、resize 重置、
-   * 减弱动态=静态单帧；各卡只写 frame(ctx,W,H,t,dt)。 */
+   * 统一接管：尺寸/DPR、IO 滚出即停、切后台停、perf-lite 让位、
+   * resize 重置、减弱动态=静态单帧；各卡只写 frame(ctx,W,H,t,dt)。 */
   function makeEngine(stageId, spec) {
     const stage = byId(stageId);
     if (!stage) return null;
@@ -109,13 +55,18 @@
     }
     function frame(now) {
       if (!running) return;
+      if (perfLite()) { stop(); return; }   // 低性能模式：演示卡让位（与首屏波光同规矩）
       if (COARSE_MS && now - last < COARSE_MS - 3) { raf = requestAnimationFrame(frame); return; }
       const dt = last ? clamp(now - last, 0, 50) / 1000 : 0.016;
       last = now; t += dt;
       spec.frame(ctx, eng.W, eng.H, t, dt);
       raf = requestAnimationFrame(frame);
     }
-    function start() { if (running || REDUCED || !spec.frame) return; running = true; last = 0; raf = requestAnimationFrame(frame); }
+    function start() {
+      if (running || REDUCED || !spec.frame || perfLite()) return;
+      running = true; last = 0;
+      raf = requestAnimationFrame(frame);
+    }
     function stop() { running = false; if (raf) cancelAnimationFrame(raf); raf = 0; }
 
     resize();
@@ -254,10 +205,12 @@
       updateLabel();
     }
 
-    /* 自动轮播：滚出视口 / 切后台即暂停，回来接着播 */
+    /* 自动轮播：滚出视口 / 切后台 / 低性能模式即暂停，回来接着播 */
     function disarm() { if (autoTimer) { clearInterval(autoTimer); autoTimer = null; } }
     function arm() { disarm(); autoTimer = setInterval(() => go((idx + 1) % STATES.length, true), 2600); }
-    function syncAuto() { (auto && visible && !document.hidden && !REDUCED) ? arm() : disarm(); }
+    function syncAuto() {
+      (auto && visible && !document.hidden && !REDUCED && !perfLite()) ? arm() : disarm();
+    }
 
     btnNext.addEventListener('click', () => { go((idx + 1) % STATES.length, true); if (auto) arm(); });
     btnPrev.addEventListener('click', () => { go((idx + STATES.length - 1) % STATES.length, true); if (auto) arm(); });
@@ -287,19 +240,26 @@
     updateLabel();
   }
 
-  /* ================= ② 金属漆笔刷 =================
-   * 事件驱动（不占 rAF）：横断面亮芯暗缘的渐变就是漆面金属光泽，
-   * 色相随笔迹长度在青绿 ↔ 金橙间游走，甩得越快漆越细，还会溅点。 */
+  /* ================= ② 金属漆笔刷 v2 =================
+   * 厚漆印章笔触：预渲染「暗缘→亮体→偏光高光」的径向渐变圆片，
+   * 沿轨迹密集盖章成有体积的漆条，顶侧再走一条湿漆白芯；
+   * 色相随笔迹长度在青绿 ↔ 金橙间游走，甩得越快漆越细。
+   * 事件驱动不占 rAF；开场先画一道签名弧，卡一进来就是成品。 */
   function initBrush() {
-    const st = { on: false, last: null, dist: 0 };
+    const st = { on: false, last: null, dist: 0, cleared: false };
+    let ctx = null;   // makeEngine 首次 resize 时就绪（签名弧在那之前就要画）
+    const sprites = new Map();   // 印章精灵按色相分桶缓存（24 桶），运行期只做 drawImage
+    const hue = () => 105 + 85 * Math.sin((st.dist + 380) * 0.006);   // 青绿 ↔ 金橙
     const eng = makeEngine('st-brush', {
       alwaysPointer: true,
       touch: true,
+      resize(c, W, H) { ctx = c; if (!REDUCED && !st.cleared) flourish(c, W, H); },
+      static(c, W, H) { ctx = c; flourish(c, W, H); },   // 减弱动态也留一道签名弧当样品
       pointer: {
         down(p) {
           st.on = true; st.last = p;
           const wm = byId('brush-wm'); if (wm) wm.classList.add('off');
-          dot(p);
+          dab(p.x, p.y, 16);
         },
         move(p) { if (!st.on || !st.last) return; seg(st.last, p); st.last = p; },
         up() { st.on = false; st.last = null; },
@@ -307,58 +267,90 @@
       }
     });
     if (!eng) return;
-    const ctx = eng.ctx;
-    const hue = () => 105 + 85 * Math.sin(st.dist * 0.006);   // 青绿 ↔ 金橙
-    function dot(p) {
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, 4.5, 0, Math.PI * 2);
-      ctx.fillStyle = 'hsl(' + hue() + ',62%,40%)';
-      ctx.fill();
+
+    function sprite(hBin) {
+      const bin = ((Math.round(hBin / 15) % 24) + 24) % 24;
+      let s = sprites.get(bin);
+      if (s) return s;
+      s = document.createElement('canvas');
+      s.width = s.height = 64;
+      const c = s.getContext('2d');
+      const g = c.createRadialGradient(25, 25, 2, 32, 32, 31);
+      g.addColorStop(0, 'hsl(' + hBin + ',72%,80%)');      // 高光核（偏左上光源）
+      g.addColorStop(0.3, 'hsl(' + hBin + ',74%,58%)');    // 亮体
+      g.addColorStop(0.64, 'hsl(' + hBin + ',70%,40%)');   // 深体
+      g.addColorStop(0.88, 'hsl(' + hBin + ',62%,24%)');   // 暗缘
+      g.addColorStop(1, 'hsla(' + hBin + ',60%,14%,0)');   // 淡出融入底漆
+      c.fillStyle = g;
+      c.beginPath(); c.arc(32, 32, 31, 0, Math.PI * 2); c.fill();
+      sprites.set(bin, s);
+      return s;
+    }
+    function dab(x, y, w) {
+      ctx.drawImage(sprite(hue()), x - w / 2, y - w / 2, w, w);
     }
     function seg(a, b) {
       const dx = b.x - a.x, dy = b.y - a.y;
       const len = Math.hypot(dx, dy);
-      if (len < 1.2) return;
+      if (len < 0.8) return;
       st.dist += len;
       const h = hue();
-      const w = clamp(15 - len * 0.16, 4.5, 15);   // 甩得越快漆越细
-      const nx = -dy / len, ny = dx / len;
-      const g = ctx.createLinearGradient(a.x + nx * w / 2, a.y + ny * w / 2,
-                                         a.x - nx * w / 2, a.y - ny * w / 2);
-      g.addColorStop(0, 'hsl(' + h + ',58%,26%)');
-      g.addColorStop(0.5, 'hsl(' + h + ',72%,62%)');
-      g.addColorStop(1, 'hsl(' + h + ',58%,26%)');
+      const w = clamp(26 - len * 0.5, 10, 26);   // 甩得越快漆越细
+      const n = Math.max(1, Math.ceil(len / 2.5));
+      for (let i = 1; i <= n; i++) {
+        const t = i / n;
+        dab(a.x + dx * t + (Math.random() - 0.5) * 1.2,
+            a.y + dy * t + (Math.random() - 0.5) * 1.2,
+            w * (0.94 + 0.06 * Math.sin(st.dist * 0.05 + i)));
+      }
+      // 湿漆高光：白色细芯沿轨迹顶侧走
+      ctx.strokeStyle = 'hsla(' + h + ',45%,94%,0.5)';
       ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-      ctx.strokeStyle = g;
-      ctx.lineWidth = w;
-      ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
-      ctx.strokeStyle = 'hsla(' + h + ',45%,92%,0.8)';   // 高光芯
-      ctx.lineWidth = Math.max(1, w * 0.2);
-      ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
-      if (len > 9 && Math.random() < 0.5) {              // 甩出的漆点
-        ctx.fillStyle = 'hsla(' + h + ',80%,70%,0.8)';
+      ctx.lineWidth = Math.max(1.2, w * 0.14);
+      ctx.beginPath();
+      ctx.moveTo(a.x - w * 0.05, a.y - w * 0.16);
+      ctx.lineTo(b.x - w * 0.05, b.y - w * 0.16);
+      ctx.stroke();
+      if (len > 14 && Math.random() < 0.4) {     // 甩出的亮漆点
+        ctx.fillStyle = 'hsla(' + h + ',85%,74%,0.85)';
         ctx.beginPath();
-        ctx.arc(b.x + (Math.random() - 0.5) * 16, b.y + (Math.random() - 0.5) * 16,
-                0.7 + Math.random() * 1.3, 0, Math.PI * 2);
+        ctx.arc(b.x + (Math.random() - 0.5) * 22, b.y + (Math.random() - 0.5) * 22,
+                0.8 + Math.random() * 1.6, 0, Math.PI * 2);
         ctx.fill();
+      }
+    }
+    function flourish(ctx, W, H) {   // 开场签名弧
+      const x0 = W * 0.12, x1 = W * 0.88;
+      let prev = null;
+      for (let i = 0; i <= 64; i++) {
+        const t = i / 64;
+        const p = { x: x0 + (x1 - x0) * t,
+                    y: H * 0.55 - Math.sin(t * Math.PI * 1.35) * H * 0.32 };
+        if (prev) seg(prev, p); else dab(p.x, p.y, 18);
+        prev = p;
       }
     }
     byId('brush-clear').addEventListener('click', () => {
       ctx.clearRect(0, 0, eng.W, eng.H);
-      st.dist = 0;
+      st.dist = 0; st.cleared = true;
       const wm = byId('brush-wm'); if (wm) wm.classList.remove('off');
     });
   }
 
   /* ================= ③ 磁吸线条 =================
-   * 一片「铁屑」：平时被慢速流场轻轻吹着，指针靠近像被磁铁吸住
-   * 转向、拉长、点亮，离开后弹回自己的方向。 */
+   * 一片「铁屑」：平时被慢速流场轻轻吹着，指针/手指靠近像被磁铁
+   * 吸住转向、拉长、点亮；触屏抬手后磁场保留一拍再散，
+   * 磁极处画一团呼吸的光晕，手机上也能看见「吸」在哪。 */
   function initMagnet() {
     const ptr = { x: -1e4, y: -1e4, on: false };
-    let lines = [];
+    let lines = [], glow = null, releaseTimer = 0;
     function draw(ctx, W, H, t, live) {
       ctx.clearRect(0, 0, W, H);
+      if (live && ptr.on && glow) {
+        ctx.globalAlpha = 0.45 + 0.2 * Math.sin(t * 3);
+        ctx.drawImage(glow, ptr.x - 48, ptr.y - 48);
+        ctx.globalAlpha = 1;
+      }
       ctx.lineCap = 'round';
       for (let i = 0; i < lines.length; i++) {
         const L = lines[i];
@@ -374,8 +366,8 @@
         L.a = lerpAngle(L.a, target, 0.1 + 0.26 * k);
         const hl = 6.5 + 5.5 * k;
         ctx.strokeStyle = k > 0.03
-          ? palette.hotLine + (0.35 + 0.55 * k).toFixed(3) + ')'
-          : palette.ink;
+          ? 'rgba(61,134,141,' + (0.35 + 0.55 * k).toFixed(3) + ')'
+          : 'rgba(23,38,43,0.36)';
         ctx.lineWidth = 1.4 + 1.1 * k;
         const ca = Math.cos(L.a) * hl, sa = Math.sin(L.a) * hl;
         ctx.beginPath();
@@ -383,6 +375,10 @@
         ctx.lineTo(L.x + ca, L.y + sa);
         ctx.stroke();
       }
+    }
+    function poke(p) {        // 指针/手指都走这里：点按也算「吸」
+      clearTimeout(releaseTimer);
+      ptr.x = p.x; ptr.y = p.y; ptr.on = true;
     }
     makeEngine('st-magnet', {
       touch: true,
@@ -392,73 +388,198 @@
         for (let y = sp * 0.5; y < H; y += sp)
           for (let x = sp * 0.5; x < W; x += sp)
             lines.push({ x: x, y: y, a: (Math.random() - 0.5) * 0.6, ph: Math.random() * Math.PI * 2 });
+        if (!glow) {          // 磁极光晕精灵
+          glow = document.createElement('canvas');
+          glow.width = glow.height = 96;
+          const c = glow.getContext('2d');
+          const g = c.createRadialGradient(48, 48, 4, 48, 48, 48);
+          g.addColorStop(0, 'rgba(61,134,141,0.42)');
+          g.addColorStop(1, 'rgba(61,134,141,0)');
+          c.fillStyle = g;
+          c.fillRect(0, 0, 96, 96);
+        }
       },
       pointer: {
-        move(p) { ptr.x = p.x; ptr.y = p.y; ptr.on = true; },
-        leave() { ptr.on = false; }
+        down(p) { poke(p); },
+        move(p) { poke(p); },
+        up() {   // 触屏抬手：磁场保留一拍再散（鼠标随后续 move/leave 接管）
+          clearTimeout(releaseTimer);
+          releaseTimer = setTimeout(() => { ptr.on = false; }, 1200);
+        },
+        leave() { clearTimeout(releaseTimer); ptr.on = false; }
       },
       frame(ctx, W, H, t) { draw(ctx, W, H, t, true); },
       static(ctx, W, H) { draw(ctx, W, H, 1.7, false); }
     });
   }
 
-  /* ================= ④ 碎金星野 =================
-   * 深色小夜空：金屑小片慢慢上浮、自转、闪烁，远处的亮星在眨眼。 */
+  /* ================= ④ 碎金星野 v2 =================
+   * 深空金屑小剧场：三团预渲染星云慢慢呼吸，金屑片（菱/长/角三种
+   * 渐变精灵）自转上浮，远星眨眼、近星带四芒光晕，每隔几秒一颗流星；
+   * 桌面端指针划过还有分层视差。全部 drawImage 精灵，无逐帧渐变。 */
   function initStar() {
-    let shards = [], dust = [], bg = null;
+    const ptr = { x: 0, y: 0, on: false };
+    const S = {};   // 预渲染精灵
+    let bgGrad = null, nebulae = [], stars = [], shards = [], meteor = null, nextMeteor = 2.5;
+
+    function makeSprite(w, h, draw) {
+      const c = document.createElement('canvas');
+      c.width = w; c.height = h;
+      draw(c.getContext('2d'));
+      return c;
+    }
+    function buildSprites() {
+      const nebula = (col) => makeSprite(256, 256, (c) => {
+        const g = c.createRadialGradient(128, 128, 8, 128, 128, 126);
+        g.addColorStop(0, col);
+        g.addColorStop(1, col.replace(/,[^,]+\)$/, ',0)'));
+        c.fillStyle = g;
+        c.fillRect(0, 0, 256, 256);
+      });
+      S.nebGold = nebula('rgba(242,185,140,0.32)');
+      S.nebTeal = nebula('rgba(64,150,156,0.3)');
+      S.nebPale = nebula('rgba(255,240,220,0.15)');
+      S.star = makeSprite(56, 56, (c) => {   // 四芒亮星
+        const g = c.createRadialGradient(28, 28, 0, 28, 28, 26);
+        g.addColorStop(0, 'rgba(255,246,224,0.95)');
+        g.addColorStop(0.25, 'rgba(255,224,160,0.5)');
+        g.addColorStop(1, 'rgba(255,224,160,0)');
+        c.fillStyle = g;
+        c.fillRect(0, 0, 56, 56);
+        c.strokeStyle = 'rgba(255,244,214,0.9)';
+        c.lineWidth = 1.4;
+        c.lineCap = 'round';
+        c.beginPath();
+        c.moveTo(28, 7); c.lineTo(28, 49);
+        c.moveTo(7, 28); c.lineTo(49, 28);
+        c.stroke();
+      });
+      S.flake = [0, 1, 2].map((v) => makeSprite(44, 44, (c) => {   // 金屑片三型
+        c.translate(22, 22);
+        const g = c.createLinearGradient(-14, -14, 14, 14);
+        g.addColorStop(0, 'hsl(46,90%,78%)');
+        g.addColorStop(0.5, 'hsl(40,85%,55%)');
+        g.addColorStop(1, 'hsl(30,70%,30%)');
+        c.fillStyle = g;
+        c.beginPath();
+        if (v === 0) { c.moveTo(0, -15); c.lineTo(11, 0); c.lineTo(0, 15); c.lineTo(-11, 0); }         // 菱片
+        else if (v === 1) { c.moveTo(-16, -4); c.lineTo(16, -2); c.lineTo(14, 4); c.lineTo(-14, 3); }  // 长屑
+        else { c.moveTo(0, -13); c.lineTo(12, 9); c.lineTo(-12, 9); }                                  // 碎角
+        c.closePath();
+        c.fill();
+        c.strokeStyle = 'rgba(255,240,200,0.5)';
+        c.lineWidth = 1;
+        c.stroke();
+      }));
+    }
     function seed(W, H) {
-      shards = []; dust = [];
-      const n = clamp(Math.round(W * H / 3200), 28, 80);
+      const k = COARSE ? 0.72 : 1;
+      const R = Math.max(W, H);
+      nebulae = [
+        { s: S.nebGold, x: W * 0.2,  y: H * 0.3,  r: R * 0.6, ph: 0,   amp: 10, a: 0.8 },
+        { s: S.nebTeal, x: W * 0.8,  y: H * 0.72, r: R * 0.65, ph: 2.1, amp: 14, a: 0.75 },
+        { s: S.nebPale, x: W * 0.55, y: H * 0.12, r: R * 0.42, ph: 4.2, amp: 8,  a: 0.55 }
+      ];
+      stars = [];
+      const nFar = Math.round(clamp(W * H / 9000, 26, 70) * k);
+      for (let i = 0; i < nFar; i++)
+        stars.push({ x: Math.random() * W, y: Math.random() * H, r: 0.6 + Math.random() * 1.1,
+                     ph: Math.random() * 6.28, tw: 0.4 + Math.random() * 1.4, near: false });
+      const nNear = Math.round(clamp(W * H / 26000, 8, 22) * k);
+      for (let i = 0; i < nNear; i++)
+        stars.push({ x: Math.random() * W, y: Math.random() * H, s: 11 + Math.random() * 14,
+                     ph: Math.random() * 6.28, tw: 0.5 + Math.random() * 1.1, near: true });
+      shards = [];
+      const n = Math.round(clamp(W * H / 3400, 20, 54) * k);
       for (let i = 0; i < n; i++) {
         const z = 0.35 + Math.random() * 0.65;
-        shards.push({
-          x: Math.random() * W, y: Math.random() * H, z: z,
-          s: (2 + Math.random() * 4.5) * z,
-          rot: Math.random() * Math.PI, vr: (Math.random() - 0.5) * 0.5,
-          ph: Math.random() * Math.PI * 2, tw: 0.5 + Math.random() * 1.3,
-          gold: Math.random() < 0.78
-        });
+        shards.push({ x: Math.random() * W, y: Math.random() * H, z: z,
+                      s: (16 + Math.random() * 22) * z, img: S.flake[i % 3],
+                      rot: Math.random() * Math.PI, vr: (Math.random() - 0.5) * 0.7,
+                      ph: Math.random() * 6.28, tw: 0.5 + Math.random() * 1.2 });
       }
-      for (let i = 0; i < n + 24; i++)
-        dust.push({ x: Math.random() * W, y: Math.random() * H,
-                    r: 0.5 + Math.random(), ph: Math.random() * Math.PI * 2,
-                    tw: 0.4 + Math.random() * 1.5 });
     }
     function draw(ctx, W, H, t, dt) {
-      ctx.fillStyle = bg;
+      const px = (!COARSE && ptr.on) ? ptr.x - W / 2 : 0;   // 指针视差（桌面）
+      const py = (!COARSE && ptr.on) ? ptr.y - H / 2 : 0;
+      ctx.fillStyle = bgGrad;
       ctx.fillRect(0, 0, W, H);
-      for (let i = 0; i < dust.length; i++) {
-        const d = dust[i];
-        const a = 0.1 + 0.3 * (0.5 + 0.5 * Math.sin(t * d.tw + d.ph));
-        ctx.fillStyle = 'rgba(255,240,214,' + a.toFixed(3) + ')';
-        ctx.fillRect(d.x, d.y, d.r, d.r);
+      for (const n of nebulae) {
+        const nx = n.x + Math.sin(t * 0.05 + n.ph) * n.amp - px * 0.012;
+        const ny = n.y + Math.cos(t * 0.04 + n.ph * 1.3) * n.amp * 0.7 - py * 0.012;
+        ctx.globalAlpha = n.a;
+        ctx.drawImage(n.s, nx - n.r / 2, ny - n.r / 2, n.r, n.r);
       }
-      for (let i = 0; i < shards.length; i++) {
-        const s = shards[i];
-        if (dt) {
-          s.y -= 6.5 * s.z * dt;
-          s.x += Math.sin(t * 0.4 + s.ph) * 3.5 * dt;
-          s.rot += s.vr * dt;
-          if (s.y < -8) { s.y = H + 8; s.x = Math.random() * W; }
-          if (s.x < -8) s.x = W + 8; else if (s.x > W + 8) s.x = -8;
+      for (const s of stars) {
+        const tw = 0.5 + 0.5 * Math.sin(t * s.tw + s.ph);
+        const ox = -px * 0.02, oy = -py * 0.02;
+        if (!s.near) {
+          ctx.globalAlpha = 0.12 + 0.5 * tw;
+          ctx.fillStyle = '#ffe9c2';
+          ctx.fillRect(s.x + ox, s.y + oy, s.r, s.r);
+        } else {
+          ctx.globalAlpha = 0.35 + 0.6 * tw;
+          const d = s.s * (0.8 + 0.25 * tw);
+          ctx.drawImage(S.star, s.x + ox - d / 2, s.y + oy - d / 2, d, d);
         }
-        const a = 0.28 + 0.55 * (0.5 + 0.5 * Math.sin(t * s.tw + s.ph));
+      }
+      for (const f of shards) {
+        if (dt) {
+          f.y -= (5 + 7 * f.z) * dt;
+          f.x += Math.sin(t * 0.35 + f.ph) * 4 * dt;
+          f.rot += f.vr * dt;
+          if (f.y < -26) { f.y = H + 26; f.x = Math.random() * W; }
+          if (f.x < -26) f.x = W + 26; else if (f.x > W + 26) f.x = -26;
+        }
         ctx.save();
-        ctx.translate(s.x, s.y);
-        ctx.rotate(s.rot);
-        ctx.fillStyle = s.gold
-          ? 'hsla(42,82%,' + (52 + 16 * s.z).toFixed(0) + '%,' + a.toFixed(3) + ')'
-          : 'hsla(186,45%,' + (58 + 12 * s.z).toFixed(0) + '%,' + (a * 0.8).toFixed(3) + ')';
-        ctx.fillRect(-s.s / 2, -s.s / 2, s.s, s.s * 0.62);   // 扁片 = 金屑
+        ctx.translate(f.x - px * 0.02 * f.z, f.y - py * 0.02 * f.z);
+        ctx.rotate(f.rot);
+        ctx.globalAlpha = 0.35 + 0.6 * (0.5 + 0.5 * Math.sin(t * f.tw + f.ph));
+        ctx.drawImage(f.img, -f.s / 2, -f.s / 2, f.s, f.s);
         ctx.restore();
+      }
+      ctx.globalAlpha = 1;
+      if (dt) {
+        nextMeteor -= dt;
+        if (!meteor && nextMeteor <= 0) {
+          const dir = Math.random() < 0.5 ? 1 : -1;
+          meteor = { x: W * (0.25 + Math.random() * 0.55), y: H * (0.05 + Math.random() * 0.2),
+                     vx: dir * (170 + Math.random() * 120), vy: 110 + Math.random() * 70, life: 0.9 };
+          nextMeteor = 4 + Math.random() * 4;
+        }
+        if (meteor) {
+          meteor.x += meteor.vx * dt;
+          meteor.y += meteor.vy * dt;
+          meteor.life -= dt;
+          if (meteor.life <= 0) meteor = null;
+        }
+      }
+      if (meteor) {
+        const a = Math.max(0, Math.min(1, meteor.life * 2.2, (0.9 - meteor.life) * 6));
+        const tx = meteor.x - meteor.vx * 0.1, ty = meteor.y - meteor.vy * 0.1;
+        const g = ctx.createLinearGradient(meteor.x, meteor.y, tx, ty);
+        g.addColorStop(0, 'rgba(255,248,228,' + (0.9 * a).toFixed(3) + ')');
+        g.addColorStop(1, 'rgba(255,248,228,0)');
+        ctx.strokeStyle = g;
+        ctx.lineWidth = 1.7;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(meteor.x, meteor.y);
+        ctx.lineTo(tx, ty);
+        ctx.stroke();
       }
     }
     makeEngine('st-star', {
+      pointer: {   // 仅为视差（桌面悬停）
+        move(p) { ptr.x = p.x; ptr.y = p.y; ptr.on = true; },
+        leave() { ptr.on = false; }
+      },
       resize(ctx, W, H) {
-        bg = ctx.createLinearGradient(0, 0, 0, H);
-        bg.addColorStop(0, '#0b1e25');
-        bg.addColorStop(0.55, '#103038');
-        bg.addColorStop(1, '#0b2129');
+        bgGrad = ctx.createLinearGradient(0, 0, 0, H);
+        bgGrad.addColorStop(0, '#0a1c24');
+        bgGrad.addColorStop(0.55, '#0f2e37');
+        bgGrad.addColorStop(1, '#0a2028');
+        if (!S.flake) buildSprites();
         seed(W, H);
       },
       frame(ctx, W, H, t, dt) { draw(ctx, W, H, t, dt); },
@@ -466,28 +587,27 @@
     });
   }
 
-  /* ================= ⑤ 流场丝带 =================
-   * 粒子被伪噪声流场推着走，尾巴在低透明覆盖下拖成丝带；
-   * 指针划过会搅出一个漩涡。减弱动态时静默推演 240 步摆一帧。 */
+  /* ================= ⑤ 流场丝带 v2 =================
+   * 满屏丝带河：开场先静默推演 150 步把丝带推满（第一帧就是成品，
+   * 不再「越看越好看」）；粒子带宽度分层与生命周期淡入淡出，少数
+   * 亮金丝提亮；指针划过搅出切向漩涡并把丝带拨开，离开后自动愈合。 */
   function initFlow() {
     const ptr = { x: -1e4, y: -1e4, on: false };
     let ps = [];
-    const FADE = 'rgba(9,24,30,0.075)';
+    const FADE = 'rgba(9,24,30,0.08)';
     function spawn(p, W, H) {
       p.x = Math.random() * W; p.y = Math.random() * H;
       p.px = p.x; p.py = p.y;
-      p.life = 80 + Math.random() * 160;
+      p.max = 5 + Math.random() * 7;          // 生命周期（秒）
+      p.age = Math.random() * p.max;
       p.ph = Math.random() * Math.PI * 2;
+      p.w = 0.8 + Math.random() * 1.8;        // 宽度分层
+      p.bright = Math.random() < 0.06;        // 少数亮金丝
     }
     function seed(W, H) {
       ps = [];
-      const n = clamp(Math.round(W * H / 1100), 70, 190);
-      for (let i = 0; i < n; i++) {
-        const p = {};
-        spawn(p, W, H);
-        p.life *= Math.random();
-        ps.push(p);
-      }
+      const n = Math.round(clamp(W * H / 1050, 80, 200) * (COARSE ? 0.7 : 1));
+      for (let i = 0; i < n; i++) { const p = {}; spawn(p, W, H); ps.push(p); }
     }
     function angle(x, y, t) {
       return Math.sin(x * 0.0042 + t * 0.16) * 1.9
@@ -497,7 +617,6 @@
     function step(ctx, W, H, t, dt, fade) {
       if (fade) { ctx.fillStyle = FADE; ctx.fillRect(0, 0, W, H); }
       ctx.globalCompositeOperation = 'lighter';
-      ctx.lineWidth = 1.1;
       ctx.lineCap = 'round';
       for (let i = 0; i < ps.length; i++) {
         const p = ps[i];
@@ -505,16 +624,24 @@
         if (ptr.on) {
           const dx = p.x - ptr.x, dy = p.y - ptr.y;
           const d = Math.hypot(dx, dy);
-          if (d < 120 && d > 0.5)
-            a = lerpAngle(a, Math.atan2(dy, dx) + Math.PI / 2, (1 - d / 120) * 0.85);
+          if (d < 150 && d > 0.5) {
+            const k = 1 - d / 150;
+            a = lerpAngle(a, Math.atan2(dy, dx) + Math.PI / 2, k * 0.8);   // 切向漩涡
+            p.x += (dx / d) * k * 26 * dt;                                 // 往外拨，丝带让位
+            p.y += (dy / d) * k * 26 * dt;
+          }
         }
         p.px = p.x; p.py = p.y;
-        p.x += Math.cos(a) * 30 * dt;
-        p.y += Math.sin(a) * 30 * dt;
-        p.life -= dt;
-        if (p.life < 0 || p.x < -6 || p.x > W + 6 || p.y < -6 || p.y > H + 6) { spawn(p, W, H); continue; }
-        const hue = 105 + 85 * Math.sin(t * 0.22 + p.ph);
-        ctx.strokeStyle = 'hsla(' + hue + ',72%,60%,0.5)';
+        p.x += Math.cos(a) * 34 * dt;
+        p.y += Math.sin(a) * 34 * dt;
+        p.age += dt;
+        if (p.age >= p.max || p.x < -8 || p.x > W + 8 || p.y < -8 || p.y > H + 8) { spawn(p, W, H); continue; }
+        const a2 = Math.sin(Math.PI * p.age / p.max) * (p.bright ? 0.75 : 0.4);   // 淡入淡出
+        const hue = 105 + 85 * Math.sin(t * 0.2 + p.ph);
+        ctx.strokeStyle = p.bright
+          ? 'hsla(46,90%,80%,' + a2.toFixed(3) + ')'
+          : 'hsla(' + hue + ',74%,60%,' + a2.toFixed(3) + ')';
+        ctx.lineWidth = p.w;
         ctx.beginPath();
         ctx.moveTo(p.px, p.py);
         ctx.lineTo(p.x, p.y);
@@ -522,12 +649,16 @@
       }
       ctx.globalCompositeOperation = 'source-over';
     }
+    function prewarm(ctx, W, H) {
+      for (let i = 0; i < 150; i++) step(ctx, W, H, 4 + i * 0.033, 0.033, false);
+    }
     makeEngine('st-flow', {
       touch: true,
       resize(ctx, W, H) {
         seed(W, H);
         ctx.fillStyle = '#0a1c23';
-        ctx.fillRect(0, 0, W, H);      // 底色铺一次，之后每帧低透明叠加成拖尾
+        ctx.fillRect(0, 0, W, H);
+        prewarm(ctx, W, H);
       },
       pointer: {
         move(p) { ptr.x = p.x; ptr.y = p.y; ptr.on = true; },
@@ -536,17 +667,11 @@
       frame(ctx, W, H, t, dt) { step(ctx, W, H, t, dt, true); },
       static(ctx, W, H) {
         ctx.fillStyle = '#0a1c23'; ctx.fillRect(0, 0, W, H);
-        for (let i = 0; i < 240; i++) step(ctx, W, H, i / 30, 1 / 30, false);
+        prewarm(ctx, W, H);
       }
     });
   }
 
-  /* ================= 启动 ================= */
-  initTheme();
-  initReveal();
-  initMorph();
-  initBrush();
-  initMagnet();
-  initStar();
-  initFlow();
+  /* ================= 启动（舞台不存在时各卡自行跳过） ================= */
+  [initMorph, initBrush, initMagnet, initStar, initFlow].forEach((f) => f());
 })();

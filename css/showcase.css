@@ -1,9 +1,9 @@
 /* ============================================================
-   showcase.css · 炫技区（独立页）
-   复用主站 style.css 的令牌与玻璃材质，这里只写页面布局
+   showcase.css · 炫技区（主站第四屏）
+   复用主站 style.css 的令牌与玻璃材质，这里只写第四屏布局
    与五张演示卡的专属样式。
    分区：
-   ① 页面骨架（返回主站 / 标题区 / 卡片网格）
+   ① 第四屏（内容超一屏，场景内部滚动）
    ② 演示舞台通用
    ③ 容器变形 7 连
    ④ 画布卡（笔刷 / 磁吸 / 星野 / 流场）
@@ -11,37 +11,27 @@
    ⑥ 无障碍与响应式
    ============================================================ */
 
-/* ---------- ① 页面骨架 ---------- */
-/* 主站的吸附翻页属于三屏结构，炫技区是普通长页，显式关掉 */
-html { scroll-snap-type: none; }
-
-.back-chip {
-  position: fixed;
-  top: 18px;
-  left: 20px;
-  z-index: 900;
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  color: var(--ink);
-  text-decoration: none;
-  transition: transform 0.35s var(--spring), box-shadow 0.35s var(--out);
-  animation: fadeDown 0.9s var(--out) 0.15s both;
+/* ---------- ① 第四屏：外层四页吸附节奏不变，本屏自己滚 ----------
+   高度必须定死 100vh（min-height 会把场景撑高、毁掉外层吸附），
+   小屏用 svh 避开地址栏；内部滚动条做细做淡。 */
+.s-showcase {
+  display: block;
+  height: 100vh;
+  height: 100svh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(23, 38, 43, 0.22) transparent;
 }
-.back-chip:hover { transform: translateY(-2px); }
-.back-chip:active { transform: scale(0.96); }
-.back-chip svg { display: block; }
+.s-showcase::-webkit-scrollbar { width: 6px; }
+.s-showcase::-webkit-scrollbar-track { background: transparent; }
+.s-showcase::-webkit-scrollbar-thumb { background: rgba(23, 38, 43, 0.18); border-radius: 3px; }
+body.dark .s-showcase::-webkit-scrollbar-thumb { background: rgba(230, 240, 242, 0.2); }
+/* 场景改块级布局后，scene-inner 失去网格居中，用 margin 补回 */
+.s-showcase .scene-inner { margin-inline: auto; }
 
-.show-main {
-  position: relative;
-  z-index: 1;
-  width: min(1080px, 100%);
-  margin-inline: auto;
-  padding: 118px 26px 84px;
-}
-.show-hero { text-align: center; margin-bottom: 42px; }
 .show-sub {
-  margin-top: 12px;
+  margin-top: 10px;
   font-size: 14px;
   color: var(--muted);
   letter-spacing: 0.14em;
@@ -50,9 +40,11 @@ html { scroll-snap-type: none; }
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(420px, 100%), 1fr));
   gap: 22px;
+  margin-top: 4px;
 }
 .show-end {
-  margin-top: 46px;
+  margin-top: 40px;
+  padding-bottom: 6px;
   text-align: center;
   font-size: 12.5px;
   color: var(--muted);
@@ -227,14 +219,11 @@ body.dark .mini-btn[aria-pressed="true"] { background-color: rgba(46, 111, 117, 
 
 /* ---------- ⑥ 无障碍与响应式 ---------- */
 @media (prefers-reduced-motion: reduce) {
-  .back-chip { animation: none; }
   .m-group { transition: none; }
 }
 @media (max-width: 760px) {
-  .back-chip { top: 14px; left: 14px; font-size: 12px; padding: 6px 14px; }
-  .show-main { padding: 104px 16px 64px; }
   .show-grid { gap: 16px; }
   .show-card { padding: 18px 16px 15px; }
-  .show-hero { margin-bottom: 32px; }
   .show-sub { font-size: 12.5px; letter-spacing: 0.08em; }
+  .show-end { margin-top: 30px; }
 }
