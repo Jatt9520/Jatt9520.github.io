@@ -793,9 +793,7 @@ body.dark .project-points li::before { background: #7fc4c9; }
   color: var(--muted);
 }
 
-/* ---------- ⑩ 页脚：横置玻璃小胶囊（项目屏底部，带 3D 倾斜 + 追光） ---------- */
-.s-projects { position: relative; padding-bottom: 118px; }
-
+/* ---------- ⑩ 页脚：横置玻璃小胶囊（现居最后一屏「炫技区」内容末尾） ---------- */
 .footer-bar {
   position: absolute;
   left: 0;
@@ -1114,7 +1112,6 @@ body.perf-lite .footer-bar {
 
   .creation-panel { padding: 30px 24px 28px; }
   .big-text { font-size: 15px; line-height: 2.15; }
-  .s-projects { padding-bottom: 150px; }
   .footer-bar { bottom: calc(22px + env(safe-area-inset-bottom, 0px)); font-size: 11.5px; gap: 3px 10px; }
   .orb-anchor { right: 14px; bottom: calc(72px + env(safe-area-inset-bottom, 0px)); }
   .orb-anchor .orb-c { width: 58px; height: 58px; }

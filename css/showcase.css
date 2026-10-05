@@ -231,3 +231,9 @@ body.dark .mini-btn[aria-pressed="true"] { background-color: rgba(46, 111, 117, 
   .show-end { margin-top: 30px; }
   .stage--cinema { height: 250px; }
 }
+
+/* 页脚落户：版权页脚归最后一屏，从绝对定位改回内容流，滚到末尾自然出现 */
+.s-showcase .footer-bar {
+  position: static;
+  margin: 26px auto 0;
+}
