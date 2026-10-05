@@ -88,15 +88,10 @@
 
     /* 指针（换算到画布坐标，rect 走缓存）；减弱动态下仅笔刷仍可手绘 */
     if (spec.pointer && (!REDUCED || spec.alwaysPointer)) {
-      let rect = stage.getBoundingClientRect();
-      let rT = 0;
-      const refresh = () => { rect = stage.getBoundingClientRect(); };
-      const queueRefresh = () => { clearTimeout(rT); rT = setTimeout(refresh, 160); };
-      window.addEventListener('scroll', queueRefresh, { passive: true });
-      stage.addEventListener('pointerenter', refresh);
-      const local = (e) => ({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+      // offsetX/Y 相对舞台取坐标（画布与舞台同几何）。第四屏是场景内滚动，
+      // 缓存 rect 在内滚后会失效 → 指针效果偏移，这里不再缓存。
+      const local = (e) => ({ x: e.offsetX, y: e.offsetY });
       stage.addEventListener('pointerdown', (e) => {
-        refresh();
         if (spec.touch) { try { stage.setPointerCapture(e.pointerId); } catch (err) { /* 忽略 */ } }
         if (spec.pointer.down) spec.pointer.down(local(e), e);
       });
@@ -158,7 +153,7 @@
       const W = stage.clientWidth, H = stage.clientHeight;
       const top = 6, bot = H - 40;             // 底部留给 0X / 07 标签
       const s = STATES[i];
-      if (i === 3 || i === 4) return { l: (W - 300) / 2, t: bot - 170 };
+      if (i === 3 || i === 4) return { l: (W - 250) / 2, t: bot - 170 };   // 态4 居中坐，态5 从它的左上角向右下生长
       return { l: (W - s.w) / 2, t: top + (bot - top - s.h) / 2 };
     }
     function place(i, anim) {
@@ -196,13 +191,33 @@
       if (i === idx) return;
       const prev = idx;
       idx = i;
-      if (STATES[prev].g === 'g-reflow') groups['g-reflow'].classList.remove('row');
+      if (STATES[prev].g === 'g-reflow') {
+        groups['g-reflow'].classList.remove('row');
+        if (window.gsap) gsap.killTweensOf(groups['g-reflow'].querySelectorAll('.m-num'));
+      }
       place(i, anim);
       Object.keys(groups).forEach((k) => setGroup(groups[k], k === STATES[i].g, anim));
       if (STATES[i].g === 'g-reflow') {
-        // 到位再切横排：先竖排淡入，变形落定后内容重排成一行
-        if (anim && USE_GSAP) setTimeout(() => { if (idx === i) groups['g-reflow'].classList.add('row'); }, 640);
-        else groups['g-reflow'].classList.add('row');
+        // 到位再切横排：先竖排淡入，变形落定后 FLIP 重排——圆圈从旧位置
+        // 平滑滑到新位置，「上下换成左右」看得见，而不是瞬间跳格子
+        const switchRow = () => {
+          if (idx !== i) return;
+          const chips = groups['g-reflow'].querySelectorAll('.m-num');
+          if (USE_GSAP && chips.length) {
+            const before = [...chips].map((c) => c.getBoundingClientRect());
+            groups['g-reflow'].classList.add('row');
+            [...chips].forEach((c, k) => {
+              const after = c.getBoundingClientRect();
+              gsap.fromTo(c,
+                { x: before[k].left - after.left, y: before[k].top - after.top },
+                { x: 0, y: 0, duration: 0.5, ease: 'power3.out', delay: k * 0.045, clearProps: 'transform' });
+            });
+          } else {
+            groups['g-reflow'].classList.add('row');
+          }
+        };
+        if (anim && USE_GSAP) setTimeout(switchRow, 640);
+        else switchRow();
       }
       updateLabel();
     }

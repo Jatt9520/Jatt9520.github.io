@@ -87,15 +87,9 @@
     });
 
     if (spec.pointer) {
-      let rect = stage.getBoundingClientRect();
-      let rT = 0;
-      const refresh = () => { rect = stage.getBoundingClientRect(); };
-      const queueRefresh = () => { clearTimeout(rT); rT = setTimeout(refresh, 160); };
-      window.addEventListener('scroll', queueRefresh, { passive: true });
-      stage.addEventListener('pointerenter', refresh);
-      const local = (e) => ({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+      // offsetX/Y 相对舞台取坐标（同 showcase.js：内滚场景不缓存 rect）
+      const local = (e) => ({ x: e.offsetX, y: e.offsetY });
       stage.addEventListener('pointerdown', (e) => {
-        refresh();
         if (spec.touch) { try { stage.setPointerCapture(e.pointerId); } catch (err) { /* 忽略 */ } }
         if (spec.pointer.down) spec.pointer.down(local(e), e);
       });
@@ -503,14 +497,14 @@
             return mix(b, a, h) - k * h * (1.0 - h);
           }
           float map(vec3 p){
-            float t = uTime * 0.5;
-            vec3 b1 = vec3(sin(t * 0.9), cos(t * 0.7) * 0.55, sin(t * 0.5) * 0.3) * 0.85;
-            vec3 b2 = vec3(cos(t * 0.6) * 1.05, sin(t * 0.8) * 0.5, cos(t * 0.55) * 0.25) * 0.85;
-            vec3 b3 = vec3(sin(t * 0.45 + 2.0) * 1.15, cos(t * 0.62 + 1.0) * 0.5, sin(t * 0.7 + 3.0) * 0.3) * 0.85;
-            float d = length(p - b1) - 0.6;
-            d = smin(d, length(p - b2) - 0.48, 0.5);
-            d = smin(d, length(p - b3) - 0.54, 0.5);
-            if (uPtr.z > 0.5) d = smin(d, length(p - uPtr.xyz * vec3(1.7, 1.0, 1.0)) - 0.5, 0.5);
+            float t = uTime * 0.62;
+            vec3 b1 = vec3(sin(t * 0.9), cos(t * 0.7) * 0.55, sin(t * 0.5) * 0.3) * 0.9;
+            vec3 b2 = vec3(cos(t * 0.6) * 1.05, sin(t * 0.8) * 0.5, cos(t * 0.55) * 0.25) * 0.9;
+            vec3 b3 = vec3(sin(t * 0.45 + 2.0) * 1.15, cos(t * 0.62 + 1.0) * 0.5, sin(t * 0.7 + 3.0) * 0.3) * 0.9;
+            float d = length(p - b1) - 0.7;
+            d = smin(d, length(p - b2) - 0.56, 0.55);
+            d = smin(d, length(p - b3) - 0.62, 0.55);
+            if (uPtr.z > 0.5) d = smin(d, length(p - uPtr.xyz * vec3(1.7, 1.0, 1.0)) - 0.55, 0.55);
             return d;
           }
           vec3 normalAt(vec3 p){
@@ -522,27 +516,31 @@
           }
           void main(){
             vec2 uv = (gl_FragCoord.xy * 2.0 - uRes) / uRes.y;
-            vec3 ro = vec3(0.0, 0.0, 3.4);
+            vec3 ro = vec3(0.0, 0.0, 3.1);
             vec3 rd = normalize(vec3(uv, -1.7));
-            vec3 col = mix(vec3(0.023, 0.08, 0.1), vec3(0.05, 0.13, 0.15), uv.y * 0.5 + 0.5);
+            vec3 col = mix(vec3(0.02, 0.075, 0.095), vec3(0.055, 0.14, 0.16), uv.y * 0.5 + 0.5);
+            col += vec3(0.05, 0.15, 0.17) * exp(-dot(uv, uv) * 0.9);   // 熔团身后的辉光
             float t = 0.0; float d = 1.0; vec3 p = ro;
-            for (int i = 0; i < 64; i++) {
+            for (int i = 0; i < 72; i++) {
               p = ro + rd * t;
               d = map(p);
-              if (d < 0.0025 || t > 9.0) break;
+              if (d < 0.0022 || t > 9.0) break;
               t += d * 0.9;
             }
-            if (d < 0.0025) {
+            if (d < 0.0022) {
               vec3 n = normalAt(p);
               vec3 l = normalize(vec3(0.5, 0.8, -0.6));
+              vec3 l2 = normalize(vec3(-0.7, -0.4, 0.2));
               float diff = max(dot(n, l), 0.0);
-              float spec = pow(max(dot(reflect(rd, n), l), 0.0), 44.0) * 1.3;
-              float fres = pow(1.0 - max(dot(n, -rd), 0.0), 3.0);
-              vec3 base = mix(vec3(0.18, 0.43, 0.45), vec3(0.95, 0.72, 0.54), p.x * 0.35 + 0.5);
-              col = base * (0.3 + 0.7 * diff) + vec3(1.0) * spec + fres * vec3(0.72, 0.9, 0.95) * 0.95;
-              col += vec3(0.2, 0.5, 0.55) * exp(-abs(d) * 10.0) * 0.35;   // 表面透亮
+              float spec = pow(max(dot(reflect(rd, n), l), 0.0), 48.0) * 1.5;
+              float spec2 = pow(max(dot(reflect(rd, n), l2), 0.0), 24.0) * 0.35;   // 暖侧补光
+              float fres = pow(1.0 - max(dot(n, -rd), 0.0), 2.6);
+              vec3 base = mix(vec3(0.09, 0.35, 0.38), vec3(1.0, 0.62, 0.38), p.x * 0.38 + 0.5);
+              col = base * (0.22 + 0.78 * diff) + vec3(1.0) * spec + vec3(1.0, 0.8, 0.6) * spec2;
+              col += fres * mix(vec3(0.45, 0.85, 0.9), vec3(1.0, 0.75, 0.5), p.x * 0.4 + 0.5) * 1.05;
+              col += vec3(0.25, 0.6, 0.62) * exp(-abs(d) * 10.0) * 0.4;   // 表面透亮
             }
-            col *= 1.0 - 0.12 * dot(uv, uv);
+            col *= 1.0 - 0.1 * dot(uv, uv);
             frag = vec4(col, 1.0);
           }`);
       },
