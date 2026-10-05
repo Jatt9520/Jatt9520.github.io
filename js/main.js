@@ -593,30 +593,50 @@
     let freeMode = false;
     let aim = { x: 0, y: -1 };                 // 绽放方向：珠心 → 指针的单位向量
 
+    /* 状态提示胶囊：拖动被锁/解锁/锁回时给看得见的反馈
+       （原生 title 悬停提示在拖拽中不会出现，必须用真实 DOM） */
+    const toast = document.createElement('span');
+    toast.className = 'orb-toast';
+    toast.setAttribute('role', 'status');
+    toast.setAttribute('aria-live', 'polite');
+    anchor.appendChild(toast);
+    let toastTimer = null;
+    function showToast(msg) {
+      toast.textContent = msg;
+      const r = anchor.getBoundingClientRect();
+      if (r.top < 70) {                        // 顶部空间不足：挂到珠子下面
+        toast.style.top = 'calc(100% + 12px)';
+        toast.style.transform = 'translate(-50%, 0)';
+      } else {
+        toast.style.top = '-12px';
+        toast.style.transform = 'translate(-50%, -100%)';
+      }
+      toast.classList.add('on');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => toast.classList.remove('on'), 1800);
+    }
+
     if (USE_GSAP) {
       items.forEach((el) => { el.style.transition = 'none'; });   // 防与 GSAP 双重平滑
       menu.classList.add('gl-free');           // 菜单改珠心锚点 + 条目绝对定位（摆位由 JS 算）
     }
 
-    /* 指向性放射布局：以 aim 为中心角，五条药丸沿 92° 圆弧展开，
-       越靠近珠心的半径越小（绽放的近端先出） */
+    /* 直线发射布局：五条药丸沿「珠心 → 手」的方向排成笔直一列——
+       手在正上方就直直上升，在左上就沿对角线排开；贴边自动往屏内推 */
     function layoutTargets() {
       const iw = items[0].offsetWidth || 112;
       const ih = items[0].offsetHeight || 36;
-      const th0 = Math.atan2(aim.y, aim.x);
-      const spread = 92 * Math.PI / 180;
       const ar = anchor.getBoundingClientRect();
       const acx = ar.left + ar.width / 2, acy = ar.top + ar.height / 2;
+      const SP = ih + 12;
       return items.map((el, i) => {
         const k = items.length - 1 - i;        // k=0（GitHub）最贴近珠心
-        const a = th0 + spread * (0.5 - k / (items.length - 1));
-        const rad = 92 + k * 26;
-        const t = { x: Math.cos(a) * rad + 8 - iw / 2, y: Math.sin(a) * rad - ih / 2 - 6 };
+        const dist = 48 + k * SP;
+        let cx = acx + aim.x * dist, cy = acy + aim.y * dist;
         // 视口钳制：珠子贴边时把药丸往屏幕内推，绝不越界
-        const pcx = acx + t.x + iw / 2, pcy = acy + t.y + ih / 2;
-        t.x += clamp(pcx, iw / 2 + 10, window.innerWidth - iw / 2 - 10) - pcx;
-        t.y += clamp(pcy, ih / 2 + 10, window.innerHeight - ih / 2 - 10) - pcy;
-        return t;
+        cx = clamp(cx, iw / 2 + 10, window.innerWidth - iw / 2 - 10);
+        cy = clamp(cy, ih / 2 + 10, window.innerHeight - ih / 2 - 10);
+        return { x: cx - acx - iw / 2, y: cy - acy - ih / 2 };
       });
     }
 
@@ -717,6 +737,7 @@
       e.stopPropagation();
       if (open) hide();
       setFree(!freeMode);
+      showToast(freeMode ? '已解锁 · 拖动到喜欢的位置' : '已锁定 · 位置固定');
     });
     orb.addEventListener('pointerdown', (e) => {
       if (e.pointerType === 'mouse' && e.button !== 0) return;
@@ -750,9 +771,15 @@
         try { localStorage.setItem('orb_pos', JSON.stringify({ x: Math.round(c.x), y: Math.round(c.y) })); } catch (err) { /* 忽略 */ }
         justDragged = true;
         setTimeout(() => { justDragged = false; }, 140);
-      } else if (USE_GSAP) {
-        // 锁定态被拖：弹一下表示「要先双击解锁」
-        gsap.fromTo(orb, { x: -4 }, { x: 4, duration: 0.06, repeat: 5, yoyo: true, ease: 'none', clearProps: 'x' });
+      } else {
+        // 锁定态被拖：晃一下 + 提示胶囊，告诉用户先双击解锁
+        if (USE_GSAP) {
+          gsap.killTweensOf(orb);
+          gsap.fromTo(orb, { x: -5 }, { x: 5, duration: 0.055, repeat: 5, yoyo: true, ease: 'none', clearProps: 'x' });
+        }
+        showToast('双击解锁 · 自由拖动');
+        justDragged = true;                    // 吞掉拖拽结束后的合成 click（否则会误开菜单）
+        setTimeout(() => { justDragged = false; }, 140);
       }
     };
     orb.addEventListener('pointerup', endDrag);
