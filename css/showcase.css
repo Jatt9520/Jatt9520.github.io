@@ -57,6 +57,8 @@ body.dark .s-showcase::-webkit-scrollbar-thumb { background: rgba(230, 240, 242,
   gap: 14px;
   padding: 22px 22px 18px;
 }
+/* WebGL 旗舰：通栏占满整行，舞台给到影院级高度 */
+.show-card--wide { grid-column: 1 / -1; }
 .show-head {
   display: flex;
   align-items: center;
@@ -86,6 +88,7 @@ body.dark .s-showcase::-webkit-scrollbar-thumb { background: rgba(230, 240, 242,
 .stage-touch { touch-action: none; }   /* 交互画布：手势留在卡内，不滚动页面 */
 .stage-brush { cursor: crosshair; }
 .stage-morph { cursor: pointer; }
+.stage--cinema { height: 340px; }      /* 通栏旗舰的大舞台 */
 
 /* ---------- ③ 容器变形 7 连 ---------- */
 .morph-fit { position: absolute; inset: 0; will-change: transform; }
@@ -226,4 +229,5 @@ body.dark .mini-btn[aria-pressed="true"] { background-color: rgba(46, 111, 117, 
   .show-card { padding: 18px 16px 15px; }
   .show-sub { font-size: 12.5px; letter-spacing: 0.08em; }
   .show-end { margin-top: 30px; }
+  .stage--cinema { height: 250px; }
 }

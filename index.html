@@ -8,8 +8,8 @@
   <!-- 相对路径基准：适配 GitHub Pages 子路径部署 -->
   <base href="./">
   <title>跨世代 · Liquid Glass</title>
-  <link rel="stylesheet" href="css/style.css?v=20261075">
-  <link rel="stylesheet" href="css/showcase.css?v=20261075">
+  <link rel="stylesheet" href="css/style.css?v=20261076">
+  <link rel="stylesheet" href="css/showcase.css?v=20261076">
 </head>
 <body>
 
@@ -219,22 +219,7 @@
             </footer>
           </article>
 
-          <!-- ② 惯性珠链：真弹簧追指针的光珠链，闲时自走舞线 -->
-          <article class="show-card glass-panel reveal">
-            <i class="glare" aria-hidden="true"></i>
-            <header class="show-head">
-              <h3 class="show-name">惯性珠链</h3>
-              <span class="pill">Canvas · 弹簧物理</span>
-            </header>
-            <div class="stage stage-touch" id="st-chain" role="group"
-                 aria-label="惯性珠链演示区：甩动指针珠链追着跑，点一下会炸开再重组">
-            </div>
-            <footer class="show-foot">
-              <span class="foot-hint">甩一甩 · 珠链追着你跑；点一下炸开重组</span>
-            </footer>
-          </article>
-
-          <!-- ③ 磁吸线条：指针/手指靠近时线条像铁屑一样转向 -->
+          <!-- ② 磁吸线条：指针/手指靠近时线条像铁屑一样转向 -->
           <article class="show-card glass-panel reveal">
             <i class="glare" aria-hidden="true"></i>
             <header class="show-head">
@@ -249,33 +234,33 @@
             </footer>
           </article>
 
-          <!-- ④ 陀螺环：三圈异轴进动的 3D 点环，拖拽带惯性 -->
-          <article class="show-card glass-panel reveal">
+          <!-- ③ 流体模拟：GPU 流体力学旗舰（通栏大舞台） -->
+          <article class="show-card show-card--wide glass-panel reveal">
             <i class="glare" aria-hidden="true"></i>
             <header class="show-head">
-              <h3 class="show-name">陀螺环</h3>
-              <span class="pill">Canvas · 3D 投影</span>
+              <h3 class="show-name">流体模拟</h3>
+              <span class="pill">WebGL · 流体力学</span>
             </header>
-            <div class="stage stage-touch" id="st-gyro" role="group"
-                 aria-label="陀螺环演示区：横向拖拽带惯性甩转，纵向拖拽俯仰视角">
+            <div class="stage stage--cinema stage-touch" id="st-fluid" role="group"
+                 aria-label="流体模拟演示区：在画面上拖动，颜料会随涡流揉开；停下不动它自己也会涌">
             </div>
             <footer class="show-foot">
-              <span class="foot-hint">拖一把 · 松手靠惯性滑行</span>
+              <span class="foot-hint">随手搅一搅 · 涡流把颜料揉开，停下它自己也会涌</span>
             </footer>
           </article>
 
-          <!-- ⑤ 水银熔球：Metaballs 液态金属，指尖可喂 -->
-          <article class="show-card glass-panel reveal">
+          <!-- ④ 液态透镜：SDF 光线行进玻璃熔球（通栏大舞台） -->
+          <article class="show-card show-card--wide glass-panel reveal">
             <i class="glare" aria-hidden="true"></i>
             <header class="show-head">
-              <h3 class="show-name">水银熔球</h3>
-              <span class="pill">Canvas · Metaballs</span>
+              <h3 class="show-name">液态透镜</h3>
+              <span class="pill">WebGL · 光线行进</span>
             </header>
-            <div class="stage stage-touch" id="st-mercury" role="group"
-                 aria-label="水银熔球演示区：指针伸过去，液态金属会聚过来融合">
+            <div class="stage stage--cinema" id="st-glass" role="group"
+                 aria-label="液态透镜演示区：三颗玻璃球熔成流动的变形虫，指尖伸过去它会涌过来">
             </div>
             <footer class="show-foot">
-              <span class="foot-hint">指尖喂过去 · 熔了又分，分了又融</span>
+              <span class="foot-hint">指尖伸过去 · 玻璃熔体会朝你涌</span>
             </footer>
           </article>
 
@@ -296,8 +281,9 @@
   </div>
 
   <script src="assets/vendor/gsap.min.js"></script>
-  <script src="js/config.js?v=20261075"></script>
-  <script src="js/main.js?v=20261075"></script>
-  <script src="js/showcase.js?v=20261075"></script>
+  <script src="js/config.js?v=20261076"></script>
+  <script src="js/main.js?v=20261076"></script>
+  <script src="js/showcase.js?v=20261076"></script>
+  <script src="js/showcase-gl.js?v=20261076"></script>
 </body>
 </html>
