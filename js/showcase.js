@@ -120,7 +120,7 @@
     { w: 220, h: 56,  r: 28, g: 'g-pill',   label: 'Pill to Card',        tip: '圆点 → 胶囊，文字浮出' },
     { w: 250, h: 150, r: 22, g: 'g-card',   label: 'Compact to Expanded', tip: '胶囊 → 卡片，内容成组出现' },
     { w: 250, h: 88,  r: 44, g: 'g-upload', label: 'Corner Radius Morph', tip: '卡片 → 紧凑条，圆角滑成全圆' },
-    { w: 300, h: 170, r: 20, g: 'g-size',   label: 'Size Morph',          tip: '紧凑条 → 大卡，锚定左上角生长' },
+    { w: 300, h: 170, r: 20, g: 'g-size',   label: 'Size Morph',          tip: '紧凑条 → 大卡，从中心撑开' },
     { w: 330, h: 104, r: 24, g: 'g-reflow', label: 'Content Reflow',      tip: '大卡 → 宽条，内容上下换成左右' },
     { w: 56,  h: 56,  r: 28, g: 'g-done',   label: 'Reverse Collapse',    tip: '宽条 → 圆点，沿来路收回落个 ✓' }
   ];
@@ -148,12 +148,12 @@
       place(idx, false);
     }
 
-    /* 位置：默认在盒区内居中；态 4/5 共享左上角（Size Morph 锚定生长） */
+    /* 位置：七个状态全部在盒区内双向居中——坐姿端正优先于
+       「锚角生长」的演示细节（实测用户两次点名不居中） */
     function rectOf(i) {
       const W = stage.clientWidth, H = stage.clientHeight;
       const top = 6, bot = H - 40;             // 底部留给 0X / 07 标签
       const s = STATES[i];
-      if (i === 3 || i === 4) return { l: (W - 250) / 2, t: bot - 170 };   // 态4 居中坐，态5 从它的左上角向右下生长
       return { l: (W - s.w) / 2, t: top + (bot - top - s.h) / 2 };
     }
     function place(i, anim) {
