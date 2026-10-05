@@ -944,6 +944,22 @@ body.dark .ghost-btn:hover { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.3
     inset -10px -12px 28px rgba(8, 32, 40, 0.2),
     0 18px 44px rgba(8, 32, 40, 0.22),
     0 0 38px rgba(61, 134, 141, 0.38);
+  /* 专属轻浮动：translate 属性驱动（transform 留给悬停），5.5s 一眼可感的呼吸 */
+  animation: orbBob 5.5s ease-in-out infinite;
+  transition: transform 0.35s var(--spring), box-shadow 0.45s var(--out);
+}
+.orb-anchor .orb-c:hover {
+  transform: translateY(-3px) scale(1.05);
+  box-shadow:
+    inset 0 0 22px rgba(255, 255, 255, 0.14),
+    inset -10px -12px 28px rgba(8, 32, 40, 0.2),
+    0 22px 54px rgba(8, 32, 40, 0.28),
+    0 0 52px rgba(61, 134, 141, 0.5);
+}
+.orb-anchor .orb-c:active { transform: scale(0.94); }
+@keyframes orbBob {
+  0%, 100% { translate: 0 0; }
+  50%      { translate: 0 -6px; }
 }
 .orb-glyph {
   position: absolute;
@@ -1018,6 +1034,7 @@ body.dark .ghost-btn:hover { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.3
     0 10px 26px rgba(8, 32, 40, 0.24);
   text-decoration: none;
   white-space: nowrap;
+  line-height: 1.4;
   opacity: 0;
   transform: translateX(16px) scale(0.9);
   transition:
@@ -1092,6 +1109,7 @@ body.dark .orb-item {
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; scroll-snap-type: y proximity; }
   .hero-bg img, .orb, .page-aurora i, .page-flow::after, .scroll-hint svg { animation: none; }
+  .orb-anchor .orb-c { animation: none; }
   .orb-halo::before, .orb-halo::after { animation: none; opacity: 0.4; }
   .hero-fx { display: none; }
   .reveal, .identity, .scroll-hint {

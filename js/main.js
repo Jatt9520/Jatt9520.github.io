@@ -458,6 +458,8 @@
 
     refreshFns.push(refreshRects);
     window.addEventListener('scroll', queueRefreshRects, { passive: true });
+    const showSc = document.getElementById('s-showcase');
+    if (showSc) showSc.addEventListener('scroll', queueRefreshRects, { passive: true });   // 第四屏内滚：页脚/卡片倾斜的坐标缓存同步
     window.addEventListener('resize', refreshCardRects);
 
     if (REDUCED) return;   // 移动端也进入本循环：动画固定播放（自律漂移）
