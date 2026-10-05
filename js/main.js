@@ -591,7 +591,17 @@
     let open = false;
     let timer = null;
     let freeMode = false;
-    let aim = { x: 0, y: -1 };                 // 绽放方向：珠心 → 指针的单位向量
+    let form_ = 'up';                          // 当前表现形式
+
+    /* 五种表现形式，由点击方向决定：
+       直上 / 直下 / 直左 / 直右 —— 点珠子哪一侧就从哪一侧笔直排开；
+       环绕 —— 点在珠子正中（没有明确方向）时，五条绕球一圈铺开 */
+    function pickForm(dx, dy, len) {
+      if (len < 26) return 'ring';
+      const ax = Math.abs(dx), ay = Math.abs(dy);
+      if (ax > ay) return dx > 0 ? 'right' : 'left';
+      return dy > 0 ? 'down' : 'up';
+    }
 
     /* 状态提示胶囊：拖动被锁/解锁/锁回时给看得见的反馈
        （原生 title 悬停提示在拖拽中不会出现，必须用真实 DOM） */
@@ -621,22 +631,52 @@
       menu.classList.add('gl-free');           // 菜单改珠心锚点 + 条目绝对定位（摆位由 JS 算）
     }
 
-    /* 直线发射布局：五条药丸沿「珠心 → 手」的方向排成笔直一列——
-       手在正上方就直直上升，在左上就沿对角线排开；贴边自动往屏内推 */
+    /* 五种表现形式的落位计算：四种直线 + 环绕。
+       药丸与珠子之间恒定留出空隙（GAP），球不会压住任何一条；
+       某方向空间不够时自动翻到对侧，整列始终在屏内。 */
     function layoutTargets() {
       const iw = items[0].offsetWidth || 112;
       const ih = items[0].offsetHeight || 36;
       const ar = anchor.getBoundingClientRect();
       const acx = ar.left + ar.width / 2, acy = ar.top + ar.height / 2;
-      const SP = ih + 12;
+      const vw = window.innerWidth, vh = window.innerHeight;
+      const GAP = 12;
+      const SP = ih + 12;                      // 列间距
+      const R_ORB = ar.width / 2;              // 球的半径（不留死角）
+      const baseV = R_ORB + GAP + ih / 2;      // 竖列：贴边看药丸高度
+      const baseH = R_ORB + GAP + iw / 2;      // 横排：贴边看药丸宽度
+      const spanV = baseV + (items.length - 1) * SP;
+      const spanH = baseH + (items.length - 1) * (iw + 10);
+      let form = form_;
+      if (form === 'up' && acy - spanV < 8) form = 'down';
+      else if (form === 'down' && acy + spanV > vh - 8) form = 'up';
+      else if (form === 'left' && acx - spanH < 8) form = 'right';
+      else if (form === 'right' && acx + spanH > vw - 8) form = 'left';
+      // 环绕：半径随四周余量自适应，最小保证不压球
+      const rMin = R_ORB + GAP + ih / 2;
+      const radius = form === 'ring'
+        ? clamp(Math.min(acx, acy, vw - acx, vh - acy) - ih / 2 - 12, rMin, 124)
+        : 0;
       return items.map((el, i) => {
-        const k = items.length - 1 - i;        // k=0（GitHub）最贴近珠心
-        const dist = 48 + k * SP;
-        let cx = acx + aim.x * dist, cy = acy + aim.y * dist;
+        let cx, cy, o;
+        if (form === 'ring') {
+          const a = -Math.PI / 2 + i * (Math.PI * 2 / items.length);   // 自正上方顺时针铺开
+          cx = acx + Math.cos(a) * radius;
+          cy = acy + Math.sin(a) * radius;
+          o = i;                               // 展开次序：顺时针
+        } else {
+          const k = items.length - 1 - i;      // k=0（GitHub）最贴近珠心
+          const step = (form === 'left' || form === 'right') ? (iw + 10) : SP;
+          const base = (form === 'left' || form === 'right') ? baseH : baseV;
+          const dist = base + k * step;
+          cx = acx + (form === 'left' ? -dist : form === 'right' ? dist : 0);
+          cy = acy + (form === 'up' ? -dist : form === 'down' ? dist : 0);
+          o = k;                               // 展开次序：从球边往外
+        }
         // 视口钳制：珠子贴边时把药丸往屏幕内推，绝不越界
-        cx = clamp(cx, iw / 2 + 10, window.innerWidth - iw / 2 - 10);
-        cy = clamp(cy, ih / 2 + 10, window.innerHeight - ih / 2 - 10);
-        return { x: cx - acx - iw / 2, y: cy - acy - ih / 2 };
+        cx = clamp(cx, iw / 2 + 10, vw - iw / 2 - 10);
+        cy = clamp(cy, ih / 2 + 10, vh - ih / 2 - 10);
+        return { x: cx - acx - iw / 2, y: cy - acy - ih / 2, o: o };
       });
     }
 
@@ -655,12 +695,11 @@
       if (USE_GSAP) {
         gsap.fromTo(orb, { scale: 1 }, { scale: 1.12, duration: 0.2, yoyo: true, repeat: 1, ease: 'power2.out', clearProps: 'scale' });
         items.forEach((el, i) => {
-          const k = items.length - 1 - i;
           const t = targets[i];
           gsap.fromTo(el,
             { x: -t.x - 8, y: -t.y - 6, scale: 0.3, opacity: 0 },
             { x: 0, y: 0, scale: 1, opacity: 1,
-              duration: 0.5, ease: 'back.out(1.7)', delay: 0.04 * k,
+              duration: 0.5, ease: 'back.out(1.7)', delay: 0.04 * t.o,
               clearProps: 'transform' });
         });
       }
@@ -673,12 +712,12 @@
       if (USE_GSAP) {
         gsap.killTweensOf(items);
         const targets = layoutTargets();
+        const maxO = items.length - 1;
         items.forEach((el, i) => {
-          const k = items.length - 1 - i;
           const t = targets[i];
           gsap.to(el,
             { x: -t.x - 8, y: -t.y - 6, scale: 0.3, opacity: 0,
-              duration: 0.28, ease: 'power2.in', delay: 0.028 * k });
+              duration: 0.28, ease: 'power2.in', delay: 0.028 * (maxO - t.o) });
         });
         timer = setTimeout(() => {
           menu.hidden = true;
@@ -700,10 +739,21 @@
 
     function clampPos(x, y) {
       const w = anchor.offsetWidth || 74, h = anchor.offsetHeight || 74;
-      return {
-        x: clamp(x, 8, Math.max(8, window.innerWidth - w - 8)),
-        y: clamp(y, 8, Math.max(8, window.innerHeight - h - 8))
-      };
+      let cx = clamp(x, 8, Math.max(8, window.innerWidth - w - 8));
+      let cy = clamp(y, 8, Math.max(8, window.innerHeight - h - 8));
+      // 避让固定导航栏：珠子不许落到导航条上（用户点名「不要被球遮挡」）
+      const dockEl = byId('dock');
+      if (dockEl && !dockEl.hidden) {
+        const d = dockEl.getBoundingClientRect();
+        const m = 8;
+        const hit = !(cx + w + m < d.left || cx - m > d.right || cy + h + m < d.top || cy - m > d.bottom);
+        if (hit) {
+          // 竖向条推左侧、横向条推上方
+          if (d.height >= d.width) cx = Math.max(8, d.left - w - m);
+          else cy = Math.max(8, d.top - h - m);
+        }
+      }
+      return { x: cx, y: cy };
     }
     function placeOrb(x, y) {
       anchor.style.left = Math.round(x) + 'px';
@@ -796,7 +846,7 @@
       const dx = e.clientX - (r.left + r.width / 2);
       const dy = e.clientY - (r.top + r.height / 2);
       const len = Math.hypot(dx, dy);
-      if (len > 6) aim = { x: dx / len, y: dy / len };
+      if (len > 6) form_ = pickForm(dx, dy, len);
       open ? hide() : show();
     });
     menu.addEventListener('click', (e) => e.stopPropagation());
@@ -817,6 +867,36 @@
     });
   }
 
+  /* ================= 固定导航栏 =================
+   * 常驻底部中央的玻璃药丸条：五项直达 + 当前所在屏高亮。
+   * 导航珠仍在右下角作为「额外入口」（可双击解锁拖动），两者互不遮挡。 */
+  function initDock() {
+    const dock = byId('dock');
+    if (!dock) return;
+    dock.querySelectorAll('[data-go]').forEach((b) => {
+      b.addEventListener('click', () => {
+        if (b.dataset.go === 'top') {
+          window.scrollTo({ top: 0, behavior: REDUCED ? 'auto' : 'smooth' });
+        } else {
+          const el = byId(b.dataset.go);
+          if (el) el.scrollIntoView({ behavior: REDUCED ? 'auto' : 'smooth' });
+        }
+      });
+    });
+    const gh = byId('dock-github');
+    if (gh) gh.href = C.footer.githubUrl;
+  }
+
+  /* 当前所在屏 → 高亮对应导航项（由 initHashNav 驱动） */
+  function markDock(screenId) {
+    const dock = byId('dock');
+    if (!dock) return;
+    const want = screenId === 's-hero' || screenId === '' ? 'top' : screenId;
+    dock.querySelectorAll('.dock-item').forEach((el) => {
+      el.classList.toggle('active', el.dataset.go === want);
+    });
+  }
+
   /* ================= 滚动提示 ================= */
   function initScrollHint() {
     byId('scroll-hint').addEventListener('click', () => {
@@ -834,6 +914,8 @@
     Object.keys(map).forEach((k) => { nameOf[map[k]] = k; });
 
     const h = decodeURIComponent(location.hash.slice(1));
+    if (map[h]) markDock(map[h]);
+    else markDock('s-hero');
     if (map[h]) {
       const el = byId(map[h]);
       // 载入期定位必须 instant：绕过 CSS 的 smooth（深链接要的是直达，
@@ -850,6 +932,7 @@
           if (v !== undefined && v !== cur) {
             cur = v;
             history.replaceState(null, '', v ? '#' + v : location.pathname + location.search);
+            markDock(en.target.id);
           }
         }
       });
@@ -1082,6 +1165,7 @@
   initScrollHint();
   initHashNav();
   initOrbNav();
+  initDock();
   initPointer();
   initHeroVideo();
   initHeroFx();
