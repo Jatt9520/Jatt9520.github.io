@@ -1,0 +1,240 @@
+/* ============================================================
+   showcase.css · 炫技区（独立页）
+   复用主站 style.css 的令牌与玻璃材质，这里只写页面布局
+   与五张演示卡的专属样式。
+   分区：
+   ① 页面骨架（返回主站 / 标题区 / 卡片网格）
+   ② 演示舞台通用
+   ③ 容器变形 7 连
+   ④ 画布卡（笔刷 / 磁吸 / 星野 / 流场）
+   ⑤ 控件（mini 按钮 / 提示）
+   ⑥ 无障碍与响应式
+   ============================================================ */
+
+/* ---------- ① 页面骨架 ---------- */
+/* 主站的吸附翻页属于三屏结构，炫技区是普通长页，显式关掉 */
+html { scroll-snap-type: none; }
+
+.back-chip {
+  position: fixed;
+  top: 18px;
+  left: 20px;
+  z-index: 900;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--ink);
+  text-decoration: none;
+  transition: transform 0.35s var(--spring), box-shadow 0.35s var(--out);
+  animation: fadeDown 0.9s var(--out) 0.15s both;
+}
+.back-chip:hover { transform: translateY(-2px); }
+.back-chip:active { transform: scale(0.96); }
+.back-chip svg { display: block; }
+
+.show-main {
+  position: relative;
+  z-index: 1;
+  width: min(1080px, 100%);
+  margin-inline: auto;
+  padding: 118px 26px 84px;
+}
+.show-hero { text-align: center; margin-bottom: 42px; }
+.show-sub {
+  margin-top: 12px;
+  font-size: 14px;
+  color: var(--muted);
+  letter-spacing: 0.14em;
+}
+.show-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(420px, 100%), 1fr));
+  gap: 22px;
+}
+.show-end {
+  margin-top: 46px;
+  text-align: center;
+  font-size: 12.5px;
+  color: var(--muted);
+  letter-spacing: 0.18em;
+}
+
+.show-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 22px 22px 18px;
+}
+.show-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.show-name { font-size: 16.5px; font-weight: 800; letter-spacing: 0.04em; }
+
+/* ---------- ② 演示舞台通用 ----------
+   230px 定高小剧场：玻璃卡里再嵌一块「屏幕」，
+   canvas 是 replaced 元素，inset 不拉伸，必须显式给尺寸 */
+.stage {
+  position: relative;
+  height: 230px;
+  border-radius: 18px;
+  overflow: hidden;
+  background: linear-gradient(160deg, rgba(255,255,255,.2), rgba(255,255,255,.06) 55%, rgba(255,255,255,.14));
+  box-shadow: inset 0 0 0 1px var(--line), inset 0 -14px 30px rgba(8, 32, 40, 0.06);
+}
+.stage-fx {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.stage-touch { touch-action: none; }   /* 交互画布：手势留在卡内，不滚动页面 */
+.stage-brush { cursor: crosshair; }
+.stage-morph { cursor: pointer; }
+
+/* ---------- ③ 容器变形 7 连 ---------- */
+.morph-fit { position: absolute; inset: 0; will-change: transform; }
+.morph-box {
+  position: absolute;
+  border-radius: 28px;
+  opacity: 0;   /* JS 摆好第一态后再亮出来，避免几何未定的闪帧 */
+  background: linear-gradient(135deg, #3d868d, #2e6f75 42%, #c98a5e 78%, #f2b98c);
+  box-shadow:
+    0 16px 36px rgba(8, 32, 40, 0.32),
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    inset 0 -8px 18px rgba(8, 32, 40, 0.18);
+  overflow: hidden;
+  will-change: left, top, width, height;
+}
+/* 内容组：叠在盒内居中，交叉淡入由 JS 驱动（GSAP 路径会关掉这条过渡） */
+.m-group {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  opacity: 0;
+  pointer-events: none;
+  color: #fff;
+  transition: opacity 0.25s var(--out);
+}
+.m-glyph { font-size: 19px; text-shadow: 0 2px 8px rgba(8, 32, 40, 0.35); }
+.m-glyph.sm { font-size: 13px; }
+#g-pill { flex-direction: row; gap: 8px; }
+.m-text { font-size: 13px; letter-spacing: 0.12em; text-shadow: 0 1px 6px rgba(8, 32, 40, 0.3); }
+.m-title { font-size: 15px; letter-spacing: 0.08em; }
+.m-desc { font-size: 12px; opacity: 0.88; letter-spacing: 0.03em; }
+.m-chips { display: flex; gap: 6px; margin-top: 2px; }
+.m-chip, .m-num {
+  height: 18px;
+  line-height: 18px;
+  padding: 0 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  background: rgba(255, 255, 255, 0.22);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.32);
+}
+.m-num { min-width: 18px; padding: 0; text-align: center; }
+#g-upload { gap: 7px; }
+#g-upload svg { display: block; }
+.m-grid { display: grid; grid-template-columns: repeat(2, 64px); gap: 8px; }
+.m-block {
+  height: 26px;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.2);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.3);
+}
+/* Content Reflow：默认竖排，morph 到位后切 .row 横排 */
+.g-reflow { flex-direction: column; }
+.g-reflow.row { flex-direction: row; }
+.morph-label {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 9px;
+  padding: 0 12px;
+  text-align: center;
+  font-size: 11.5px;
+  line-height: 1.6;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  pointer-events: none;
+}
+
+/* ---------- ④ 画布卡 ---------- */
+.m-watermark {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  letter-spacing: 0.24em;
+  text-indent: 0.24em;
+  color: var(--muted);
+  opacity: 0.55;
+  pointer-events: none;
+  transition: opacity 0.4s var(--out);
+  z-index: 2;
+}
+.m-watermark.off { opacity: 0; }
+
+/* ---------- ⑤ 控件 ---------- */
+.show-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  min-height: 30px;
+}
+.foot-hint { font-size: 12px; letter-spacing: 0.05em; color: var(--muted); }
+.foot-ctrl { display: flex; gap: 7px; flex-wrap: wrap; }
+.mini-btn {
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: var(--ink);
+  padding: 6px 13px;
+  border-radius: 999px;
+  background-image: var(--glass-bg);
+  background-color: rgba(255, 255, 255, 0.22);
+  -webkit-backdrop-filter: blur(10px) saturate(150%);
+  backdrop-filter: blur(10px) saturate(150%);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.3), 0 6px 16px rgba(8, 32, 40, 0.14);
+  transition: transform 0.3s var(--spring), box-shadow 0.3s var(--out), background-color 0.3s var(--out);
+}
+.mini-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.5), 0 10px 22px rgba(8, 32, 40, 0.2);
+}
+.mini-btn:active { transform: scale(0.95); }
+.mini-btn[aria-pressed="true"] { background-color: rgba(61, 134, 141, 0.24); }
+.mini-btn[disabled] { opacity: 0.45; pointer-events: none; }
+body.dark .mini-btn {
+  background-color: rgba(24, 34, 40, 0.42);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14), 0 6px 16px rgba(0, 0, 0, 0.36);
+}
+body.dark .mini-btn[aria-pressed="true"] { background-color: rgba(46, 111, 117, 0.4); }
+
+/* ---------- ⑥ 无障碍与响应式 ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .back-chip { animation: none; }
+  .m-group { transition: none; }
+}
+@media (max-width: 760px) {
+  .back-chip { top: 14px; left: 14px; font-size: 12px; padding: 6px 14px; }
+  .show-main { padding: 104px 16px 64px; }
+  .show-grid { gap: 16px; }
+  .show-card { padding: 18px 16px 15px; }
+  .show-hero { margin-bottom: 32px; }
+  .show-sub { font-size: 12.5px; letter-spacing: 0.08em; }
+}

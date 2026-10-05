@@ -1011,6 +1011,7 @@ body.dark .orb-item {
 .orb-anchor.open .orb-item:nth-child(2) { transition-delay: 0.11s, 0.11s, 0s; }
 .orb-anchor.open .orb-item:nth-child(3) { transition-delay: 0.17s, 0.17s, 0s; }
 .orb-anchor.open .orb-item:nth-child(4) { transition-delay: 0.23s, 0.23s, 0s; }
+.orb-anchor.open .orb-item:nth-child(5) { transition-delay: 0.29s, 0.29s, 0s; }
 
 /* 珠子加 glyph 后图标层在 canvas 折射之上 */
 .orb-anchor .orb-c { overflow: visible; }
