@@ -577,9 +577,12 @@
     window.addEventListener('load', refreshRects);
   }
 
-  /* ================= 快捷导航球：点击弹出快捷菜单 =================
-   * GSAP 路径：展开时条目自珠心绽放（自下而上），收起时反向逐层
-   * 缩回珠心（Reverse Collapse，先进后出）；CSS 路径为降级保底。 */
+  /* ================= 快捷导航球：指向性绽放 + 双击解锁拖拽 =================
+   *  · 菜单从珠心朝「手的方向」绽放：点珠子上方就向上展开、点左上角
+   *    就朝左上方展开（点击坐标 → 珠心指向 → 五条沿 92° 圆弧排开）
+   *  · 收起沿原路缩回珠心（Reverse Collapse）
+   *  · 珠子默认锁死：拖动只会被弹回原位；双击解锁自由拖动
+   *    （弹簧跟随 + 位置记忆 + 屏幕钳制），再双击锁回。 */
   function initOrbNav() {
     const anchor = byId('orb-anchor');
     const orb = byId('orb-nav');
@@ -587,32 +590,59 @@
     const items = [...menu.querySelectorAll('.orb-item')];
     let open = false;
     let timer = null;
+    let freeMode = false;
+    let aim = { x: 0, y: -1 };                 // 绽放方向：珠心 → 指针的单位向量
 
-    if (USE_GSAP) items.forEach((el) => { el.style.transition = 'none'; });   // 防止与 GSAP 双重平滑
+    if (USE_GSAP) {
+      items.forEach((el) => { el.style.transition = 'none'; });   // 防与 GSAP 双重平滑
+      menu.classList.add('gl-free');           // 菜单改珠心锚点 + 条目绝对定位（摆位由 JS 算）
+    }
 
-    // 条目与珠心的偏移：收起时沿来路缩回，展开时自珠子生长
-    function orbOffsets() {
-      const o = orb.getBoundingClientRect();
-      return items.map((el) => {
-        const r = el.getBoundingClientRect();
-        return { x: (o.left + o.width / 2) - (r.left + r.width / 2),
-                 y: (o.top + o.height / 2) - (r.top + r.height / 2) };
+    /* 指向性放射布局：以 aim 为中心角，五条药丸沿 92° 圆弧展开，
+       越靠近珠心的半径越小（绽放的近端先出） */
+    function layoutTargets() {
+      const iw = items[0].offsetWidth || 112;
+      const ih = items[0].offsetHeight || 36;
+      const th0 = Math.atan2(aim.y, aim.x);
+      const spread = 92 * Math.PI / 180;
+      const ar = anchor.getBoundingClientRect();
+      const acx = ar.left + ar.width / 2, acy = ar.top + ar.height / 2;
+      return items.map((el, i) => {
+        const k = items.length - 1 - i;        // k=0（GitHub）最贴近珠心
+        const a = th0 + spread * (0.5 - k / (items.length - 1));
+        const rad = 92 + k * 26;
+        const t = { x: Math.cos(a) * rad + 8 - iw / 2, y: Math.sin(a) * rad - ih / 2 - 6 };
+        // 视口钳制：珠子贴边时把药丸往屏幕内推，绝不越界
+        const pcx = acx + t.x + iw / 2, pcy = acy + t.y + ih / 2;
+        t.x += clamp(pcx, iw / 2 + 10, window.innerWidth - iw / 2 - 10) - pcx;
+        t.y += clamp(pcy, ih / 2 + 10, window.innerHeight - ih / 2 - 10) - pcy;
+        return t;
       });
     }
 
     const show = () => {
       clearTimeout(timer);
-      if (USE_GSAP) gsap.killTweensOf(items);
+      if (USE_GSAP) { gsap.killTweensOf(items); gsap.killTweensOf(orb); }
+      const targets = USE_GSAP ? layoutTargets() : null;
+      if (USE_GSAP) items.forEach((el, i) => {
+        el.style.left = targets[i].x + 'px';
+        el.style.top = targets[i].y + 'px';
+      });
       menu.hidden = false;
-      void menu.offsetWidth;                 // 强制回流：过渡从收起态开始
+      void menu.offsetWidth;                   // 强制回流：过渡从收起态开始
       anchor.classList.add('open');
       orb.setAttribute('aria-expanded', 'true');
       if (USE_GSAP) {
-        const off = orbOffsets();
-        gsap.fromTo(items,
-          { opacity: 0, scale: 0.35, x: (i) => off[i].x, y: (i) => off[i].y },
-          { opacity: 1, scale: 1, x: 0, y: 0, duration: 0.45, ease: 'back.out(1.7)',
-            stagger: { each: 0.045, from: 'end' }, clearProps: 'transform' });
+        gsap.fromTo(orb, { scale: 1 }, { scale: 1.12, duration: 0.2, yoyo: true, repeat: 1, ease: 'power2.out', clearProps: 'scale' });
+        items.forEach((el, i) => {
+          const k = items.length - 1 - i;
+          const t = targets[i];
+          gsap.fromTo(el,
+            { x: -t.x - 8, y: -t.y - 6, scale: 0.3, opacity: 0 },
+            { x: 0, y: 0, scale: 1, opacity: 1,
+              duration: 0.5, ease: 'back.out(1.7)', delay: 0.04 * k,
+              clearProps: 'transform' });
+        });
       }
       open = true;
     };
@@ -622,21 +652,126 @@
       orb.setAttribute('aria-expanded', 'false');
       if (USE_GSAP) {
         gsap.killTweensOf(items);
-        const off = orbOffsets();
-        gsap.to(items,
-          { opacity: 0, scale: 0.35, x: (i) => off[i].x, y: (i) => off[i].y,
-            duration: 0.32, ease: 'power2.in', stagger: { each: 0.04, from: 'start' },
-            onComplete: () => {
-              menu.hidden = true;
-              gsap.set(items, { clearProps: 'opacity,transform' });
-            } });
+        const targets = layoutTargets();
+        items.forEach((el, i) => {
+          const k = items.length - 1 - i;
+          const t = targets[i];
+          gsap.to(el,
+            { x: -t.x - 8, y: -t.y - 6, scale: 0.3, opacity: 0,
+              duration: 0.28, ease: 'power2.in', delay: 0.028 * k });
+        });
+        timer = setTimeout(() => {
+          menu.hidden = true;
+          items.forEach((el) => gsap.set(el, { clearProps: 'x,y,scale,opacity' }));
+        }, 460);
       } else {
         timer = setTimeout(() => { menu.hidden = true; }, 420);
       }
       open = false;
     };
 
-    orb.addEventListener('click', (e) => { e.stopPropagation(); open ? hide() : show(); });
+    /* —— 拖拽与锁定 —— */
+    let drag = null;
+    let justDragged = false;
+    let lastClickT = 0;
+    const hasQuick = typeof gsap !== 'undefined' && !!gsap.quickTo;
+    const xTo = hasQuick ? gsap.quickTo(orb, 'x', { duration: 0.3, ease: 'power3' }) : null;
+    const yTo = hasQuick ? gsap.quickTo(orb, 'y', { duration: 0.3, ease: 'power3' }) : null;
+
+    function clampPos(x, y) {
+      const w = anchor.offsetWidth || 74, h = anchor.offsetHeight || 74;
+      return {
+        x: clamp(x, 8, Math.max(8, window.innerWidth - w - 8)),
+        y: clamp(y, 8, Math.max(8, window.innerHeight - h - 8))
+      };
+    }
+    function placeOrb(x, y) {
+      anchor.style.left = Math.round(x) + 'px';
+      anchor.style.top = Math.round(y) + 'px';
+      anchor.style.right = 'auto';
+      anchor.style.bottom = 'auto';
+    }
+    function setFree(on) {
+      freeMode = on;
+      orb.classList.toggle('orb-free', on);
+      orb.title = on ? '自由拖动中 · 再双击锁定' : '快捷导航 · 双击解锁自由拖动';
+      if (USE_GSAP) gsap.fromTo(orb, { scale: 0.9 }, { scale: 1, duration: 0.45, ease: 'elastic.out(1, 0.45)', clearProps: 'scale' });
+    }
+    orb.title = '快捷导航 · 双击解锁自由拖动';
+    try {
+      const saved = JSON.parse(localStorage.getItem('orb_pos') || 'null');
+      if (saved && typeof saved.x === 'number') {
+        const c = clampPos(saved.x, saved.y);
+        placeOrb(c.x, c.y);
+      }
+    } catch (e) { /* 忽略 */ }
+    window.addEventListener('resize', () => {
+      if (anchor.style.left === '') return;
+      const r = anchor.getBoundingClientRect();
+      const c = clampPos(r.left, r.top);
+      if (c.x !== r.left || c.y !== r.top) placeOrb(c.x, c.y);
+    });
+
+    orb.addEventListener('dblclick', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (open) hide();
+      setFree(!freeMode);
+    });
+    orb.addEventListener('pointerdown', (e) => {
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
+      const r = anchor.getBoundingClientRect();
+      drag = { sx: e.clientX, sy: e.clientY, ox: r.left, oy: r.top, moved: false };
+      try { orb.setPointerCapture(e.pointerId); } catch (err) { /* 忽略 */ }
+      if (USE_GSAP) gsap.killTweensOf(orb);
+    });
+    orb.addEventListener('pointermove', (e) => {
+      if (!drag) return;
+      const dx = e.clientX - drag.sx, dy = e.clientY - drag.sy;
+      if (!drag.moved && Math.hypot(dx, dy) > 6) drag.moved = true;
+      if (!drag.moved || !freeMode) return;    // 锁定态：纹丝不动
+      if (open) hide();
+      const c = clampPos(drag.ox + dx, drag.oy + dy);
+      const nx = c.x - drag.ox, ny = c.y - drag.oy;
+      if (xTo) { xTo(nx); yTo(ny); }
+      else orb.style.transform = 'translate(' + nx + 'px,' + ny + 'px)';
+    });
+    const endDrag = (e) => {
+      if (!drag) return;
+      const d = drag;
+      drag = null;
+      if (!d.moved) return;                    // 纯点击：交给 click/dblclick
+      if (USE_GSAP) gsap.killTweensOf(orb);    // 必须先杀在途 quickTo，否则珠子会继续漂出屏幕
+      if (freeMode) {
+        const c = clampPos(d.ox + (e.clientX - d.sx), d.oy + (e.clientY - d.sy));
+        placeOrb(c.x, c.y);
+        if (USE_GSAP) gsap.set(orb, { x: 0, y: 0, scale: 1 });   // 连带复位：快速抓取可能杀掉解锁脉冲
+        else orb.style.transform = '';
+        try { localStorage.setItem('orb_pos', JSON.stringify({ x: Math.round(c.x), y: Math.round(c.y) })); } catch (err) { /* 忽略 */ }
+        justDragged = true;
+        setTimeout(() => { justDragged = false; }, 140);
+      } else if (USE_GSAP) {
+        // 锁定态被拖：弹一下表示「要先双击解锁」
+        gsap.fromTo(orb, { x: -4 }, { x: 4, duration: 0.06, repeat: 5, yoyo: true, ease: 'none', clearProps: 'x' });
+      }
+    };
+    orb.addEventListener('pointerup', endDrag);
+    orb.addEventListener('pointercancel', endDrag);
+
+    orb.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (e.detail >= 2) return;               // 双击的第二下：交给 dblclick
+      if (justDragged) { justDragged = false; return; }
+      if (performance.now() - lastClickT < 350) { lastClickT = 0; return; }
+      lastClickT = performance.now();
+      // 绽放方向 = 珠心 → 点击坐标
+      const r = orb.getBoundingClientRect();
+      const dx = e.clientX - (r.left + r.width / 2);
+      const dy = e.clientY - (r.top + r.height / 2);
+      const len = Math.hypot(dx, dy);
+      if (len > 6) aim = { x: dx / len, y: dy / len };
+      open ? hide() : show();
+    });
     menu.addEventListener('click', (e) => e.stopPropagation());
     document.addEventListener('click', hide);
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape') hide(); });

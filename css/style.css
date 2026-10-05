@@ -957,10 +957,41 @@ body.dark .ghost-btn:hover { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.3
     0 0 52px rgba(61, 134, 141, 0.5);
 }
 .orb-anchor .orb-c:active { transform: scale(0.94); }
+.orb-anchor .orb-c { touch-action: none; cursor: grab; }
+.orb-anchor .orb-c.dragging { animation-play-state: paused; cursor: grabbing; }
 @keyframes orbBob {
   0%, 100% { translate: 0 0; }
   50%      { translate: 0 -6px; }
 }
+
+/* GSAP 布局：菜单改珠心锚点 + 条目绝对定位（摆位由 JS 计算），
+   条目闲时各自轻呼吸（translate 属性，不打架 GSAP 的 transform） */
+.orb-menu.gl-free {
+  right: auto;
+  bottom: auto;
+  left: 50%;
+  top: 50%;
+  width: 0;
+  height: 0;
+  display: block;
+  gap: 0;
+}
+.orb-menu.gl-free .orb-item {
+  position: absolute;
+  left: 0;
+  top: 0;
+}
+/* 双击解锁后的自由拖动态：青色描边环 + 抓取光标 */
+.orb-anchor .orb-c.orb-free {
+  cursor: grab;
+  box-shadow:
+    inset 0 0 22px rgba(255, 255, 255, 0.14),
+    inset -10px -12px 28px rgba(8, 32, 40, 0.2),
+    inset 0 0 0 2.5px rgba(143, 208, 213, 0.6),
+    0 18px 44px rgba(8, 32, 40, 0.22),
+    0 0 46px rgba(61, 134, 141, 0.46);
+}
+.orb-anchor .orb-c.orb-free:active { cursor: grabbing; }
 .orb-glyph {
   position: absolute;
   inset: 0;
@@ -1113,6 +1144,7 @@ body.dark .orb-item {
   .hero-bg img, .orb, .page-aurora i, .page-flow::after, .scroll-hint svg { animation: none; }
   .orb-anchor .orb-c { animation: none; }
   .orb-halo::before, .orb-halo::after { animation: none; opacity: 0.4; }
+
   .hero-fx { display: none; }
   .reveal, .identity, .scroll-hint {
     animation: none;
