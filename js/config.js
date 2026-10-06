@@ -87,18 +87,18 @@ const CONFIG = {
     end: '清单上还排着好几个动效 · 未完待续'
   },
 
+  /* ---------- 导航珠的项目卫星（绕珠小行星，点击直达仓库） ---------- */
+  orbPlanets: [
+    { repo: 'quasardb',               color: '#3178c6' },   // TypeScript 蓝
+    { repo: 'MarkdownReader',         color: '#3572A5' },   // Python 蓝
+    { repo: 'video-spider-installer', color: '#C1F12E' },   // Batchfile 黄绿
+  ],
+
   /* ---------- 页脚（横置胶囊） ---------- */
   footer: {
     githubLabel: 'GitHub',
     githubUrl: 'https://github.com/Jatt9520',
     copyright: '© 2026 跨世代 · Powered by GitHub Pages'
-  },
-
-  /* ---------- 欢迎弹窗（仅首次访问展示） ---------- */
-  modal: {
-    title: '欢迎来到我的网站',
-    text: '这里是一块用原生代码打磨的液态玻璃。往下滑，看看风景与作品。',
-    button: '进入网站'
   },
 
   /* ---------- 液态玻璃效果开关 ---------- */
@@ -113,8 +113,4 @@ const CONFIG = {
     tip: '深浅色切换'
   },
 
-  /* ---------- 首次访问标记 ---------- */
-  firstVisit: {
-    storageKey: 'site_first_visit'       // 值为 ISO 时间戳
-  }
 };

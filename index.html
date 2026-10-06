@@ -8,8 +8,8 @@
   <!-- 相对路径基准：适配 GitHub Pages 子路径部署 -->
   <base href="./">
   <title>跨世代 · Liquid Glass</title>
-  <link rel="stylesheet" href="css/style.css?v=20261091">
-  <link rel="stylesheet" href="css/showcase.css?v=20261091">
+  <link rel="stylesheet" href="css/style.css?v=20261110">
+  <link rel="stylesheet" href="css/showcase.css?v=20261110">
 </head>
 <body>
 
@@ -45,20 +45,14 @@
     </div>
   </div>
 
-  <!-- 快捷导航球：固定悬浮，点击弹出快捷菜单（回顶部 / 初衷 / 项目 / 炫技区 / GitHub） -->
+  <!-- 项目行星：固定悬浮的玻璃行星，三颗项目卫星绕珠环绕（js initOrbPlanets）。
+       原「快捷导航菜单」已随 dock 上线整体退休，珠子只管当行星 + 可拖拽 -->
   <div class="orb-anchor" id="orb-anchor">
     <button class="orb glass-orb orb-c" id="orb-nav" type="button" data-depth="0.04"
-            aria-expanded="false" aria-controls="orb-menu" aria-label="快捷导航">
+            aria-label="项目行星 · 双击解锁自由拖动">
       <i class="orb-halo" aria-hidden="true"></i>
       <span class="orb-glyph" aria-hidden="true">✦</span>
     </button>
-    <nav class="orb-menu" id="orb-menu" hidden aria-label="快捷导航菜单">
-      <button class="orb-item" data-go="top" type="button">⌂ 回顶部</button>
-      <button class="orb-item" data-go="s-creation" type="button">✎ 创作初衷</button>
-      <button class="orb-item" data-go="s-projects" type="button">◈ 我的项目</button>
-      <button class="orb-item" data-go="s-showcase" type="button">⚗ 炫技区</button>
-      <a class="orb-item" id="orb-github" target="_blank" rel="noopener">↗ GitHub</a>
-    </nav>
   </div>
 
   <!-- 固定导航栏：常驻底部中央的玻璃药丸条（五项直达 + 当前屏高亮）。
@@ -118,6 +112,12 @@
       <div class="hero-veil" aria-hidden="true"></div>
       <!-- 动态层：海面碎金波光 + 浮尘微粒（canvas 逐帧） -->
       <canvas class="hero-fx" id="hero-fx" aria-hidden="true"></canvas>
+
+      <!-- 首屏欢迎词：加粗逐字打出 + 前往探索（给空旷首屏一句开场白） -->
+      <div class="hero-welcome" id="hero-welcome">
+        <p class="welcome-line" id="welcome-line" aria-label="Welcome"></p>
+        <button class="hero-cta magnetic" id="hero-cta" type="button">前往探索</button>
+      </div>
 
       <!-- 滚动提示 -->
       <button class="scroll-hint glass-chip" id="scroll-hint" type="button">
@@ -198,7 +198,7 @@
                   </div>
                   <div class="m-group" data-g="g-upload">
                     <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
-                      <path d="M12 19V6M5.5 12.5L12 6l6.5 6.5" fill="none" stroke="#fff"
+                      <path d="M12 19V6M5.5 12.5L12 6l6.5 6.5" fill="none" stroke="currentColor"
                             stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
                     </svg>
                     <span class="m-text">上传作品</span>
@@ -214,7 +214,7 @@
                   </div>
                   <div class="m-group" data-g="g-done">
                     <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true">
-                      <path d="M4.5 12.5l5 5 10-11" fill="none" stroke="#fff"
+                      <path d="M4.5 12.5l5 5 10-11" fill="none" stroke="currentColor"
                             stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
                     </svg>
                   </div>
@@ -227,6 +227,8 @@
                 <button class="mini-btn" id="morph-prev" type="button">← 上一步</button>
                 <button class="mini-btn" id="morph-next" type="button">下一步 →</button>
                 <button class="mini-btn" id="morph-auto" type="button" aria-pressed="false">▶ 自动轮播</button>
+                <button class="mini-btn" id="morph-mat" type="button" aria-pressed="false"
+                        title="在液态玻璃与青橙彩釉之间切换">材质 · 液态玻璃</button>
               </div>
               <span class="foot-hint">点画面也能推进</span>
             </footer>
@@ -271,9 +273,10 @@
             </header>
             <div class="stage stage--cinema" id="st-glass" role="group"
                  aria-label="液态透镜演示区：三颗玻璃球熔成流动的变形虫，指尖伸过去它会涌过来">
+              <p class="lens-hint" aria-hidden="true">三颗玻璃珠 · 熔成一颗液态透镜</p>
             </div>
             <footer class="show-foot">
-              <span class="foot-hint">指尖伸过去 · 玻璃熔体会朝你涌</span>
+              <span class="foot-hint">指尖伸过去 · 你就是第四颗玻璃珠，熔体会朝你涌</span>
             </footer>
           </article>
 
@@ -292,19 +295,10 @@
     </section>
   </main>
 
-  <!-- ============ 欢迎弹窗（仅首次访问展示） ============ -->
-  <div class="modal" id="modal" hidden>
-    <div class="modal-card glass-panel">
-      <h1 class="modal-title" id="modal-title"></h1>
-      <p class="modal-text" id="modal-text"></p>
-      <button class="cta-btn magnetic" id="modal-btn" type="button"></button>
-    </div>
-  </div>
-
   <script src="assets/vendor/gsap.min.js"></script>
-  <script src="js/config.js?v=20261091"></script>
-  <script src="js/main.js?v=20261091"></script>
-  <script src="js/showcase.js?v=20261091"></script>
-  <script src="js/showcase-gl.js?v=20261091"></script>
+  <script src="js/config.js?v=20261110"></script>
+  <script src="js/main.js?v=20261110"></script>
+  <script src="js/showcase.js?v=20261110"></script>
+  <script src="js/showcase-gl.js?v=20261110"></script>
 </body>
 </html>

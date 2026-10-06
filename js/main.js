@@ -128,32 +128,8 @@
     fgh.textContent = C.footer.githubLabel;
     fgh.href = C.footer.githubUrl;
     byId('footer-copy').textContent = C.footer.copyright;
-    const ogh = byId('orb-github');
-    ogh.href = C.footer.githubUrl;
+    // （珠子菜单连着 orb-github 外链一并退休：GitHub 入口只留 dock 与页脚）
 
-    byId('modal-title').textContent = C.modal.title;
-    byId('modal-text').textContent = C.modal.text;
-    byId('modal-btn').textContent = C.modal.button;
-  }
-
-  /* ================= 首访欢迎（仅首次） ================= */
-  function initWelcome() {
-    const modal = byId('modal');
-    const v = localStorage.getItem(C.firstVisit.storageKey);
-    const isValidISO = typeof v === 'string'
-      && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(v)
-      && !Number.isNaN(Date.parse(v));
-    if (isValidISO) return;                       // 老访客直接进入
-    try { localStorage.setItem(C.firstVisit.storageKey, new Date().toISOString()); } catch (e) { /* 忽略 */ }
-
-    const reveal = () => modal.classList.add('show');
-    modal.hidden = false;
-    void modal.offsetWidth;           // 强制回流：过渡从关闭态平滑开始
-    reveal();
-    byId('modal-btn').addEventListener('click', () => {
-      modal.classList.remove('show');
-      setTimeout(() => { modal.hidden = true; }, 450);
-    });
   }
 
   /* ================= 头像：点击丝滑展开自我介绍 ================= */
@@ -577,31 +553,15 @@
     window.addEventListener('load', refreshRects);
   }
 
-  /* ================= 快捷导航球：指向性绽放 + 双击解锁拖拽 =================
-   *  · 菜单从珠心朝「手的方向」绽放：点珠子上方就向上展开、点左上角
-   *    就朝左上方展开（点击坐标 → 珠心指向 → 五条沿 92° 圆弧排开）
-   *  · 收起沿原路缩回珠心（Reverse Collapse）
-   *  · 珠子默认锁死：拖动只会被弹回原位；双击解锁自由拖动
-   *    （弹簧跟随 + 位置记忆 + 屏幕钳制），再双击锁回。 */
+  /* ================= 项目行星：玻璃珠本体 =================
+   *  · 导航职责已整体移交底部 dock，珠子上的绽放菜单已退休删除
+   *  · 珠子现在只是「行星本体」：三颗项目卫星绕它转（initOrbPlanets）
+   *  · 点一下给个果冻脉冲；双击解锁自由拖动（弹簧跟随 + 位置记忆 +
+   *    屏幕钳制 + 避让 dock），再双击锁回。 */
   function initOrbNav() {
     const anchor = byId('orb-anchor');
     const orb = byId('orb-nav');
-    const menu = byId('orb-menu');
-    const items = [...menu.querySelectorAll('.orb-item')];
-    let open = false;
-    let timer = null;
     let freeMode = false;
-    let form_ = 'up';                          // 当前表现形式
-
-    /* 五种表现形式，由点击方向决定：
-       直上 / 直下 / 直左 / 直右 —— 点珠子哪一侧就从哪一侧笔直排开；
-       环绕 —— 点在珠子正中（没有明确方向）时，五条绕球一圈铺开 */
-    function pickForm(dx, dy, len) {
-      if (len < 26) return 'ring';
-      const ax = Math.abs(dx), ay = Math.abs(dy);
-      if (ax > ay) return dx > 0 ? 'right' : 'left';
-      return dy > 0 ? 'down' : 'up';
-    }
 
     /* 状态提示胶囊：拖动被锁/解锁/锁回时给看得见的反馈
        （原生 title 悬停提示在拖拽中不会出现，必须用真实 DOM） */
@@ -626,116 +586,20 @@
       toastTimer = setTimeout(() => toast.classList.remove('on'), 1800);
     }
 
-    if (USE_GSAP) {
-      items.forEach((el) => { el.style.transition = 'none'; });   // 防与 GSAP 双重平滑
-      menu.classList.add('gl-free');           // 菜单改珠心锚点 + 条目绝对定位（摆位由 JS 算）
-    }
-
-    /* 五种表现形式的落位计算：四种直线 + 环绕。
-       药丸与珠子之间恒定留出空隙（GAP），球不会压住任何一条；
-       某方向空间不够时自动翻到对侧，整列始终在屏内。 */
-    function layoutTargets() {
-      const iw = items[0].offsetWidth || 112;
-      const ih = items[0].offsetHeight || 36;
-      const ar = anchor.getBoundingClientRect();
-      const acx = ar.left + ar.width / 2, acy = ar.top + ar.height / 2;
-      const vw = window.innerWidth, vh = window.innerHeight;
-      const GAP = 12;
-      const SP = ih + 12;                      // 列间距
-      const R_ORB = ar.width / 2;              // 球的半径（不留死角）
-      const baseV = R_ORB + GAP + ih / 2;      // 竖列：贴边看药丸高度
-      const baseH = R_ORB + GAP + iw / 2;      // 横排：贴边看药丸宽度
-      const spanV = baseV + (items.length - 1) * SP;
-      const spanH = baseH + (items.length - 1) * (iw + 10);
-      let form = form_;
-      if (form === 'up' && acy - spanV < 8) form = 'down';
-      else if (form === 'down' && acy + spanV > vh - 8) form = 'up';
-      else if (form === 'left' && acx - spanH < 8) form = 'right';
-      else if (form === 'right' && acx + spanH > vw - 8) form = 'left';
-      // 环绕：半径随四周余量自适应，最小保证不压球
-      const rMin = R_ORB + GAP + ih / 2;
-      const radius = form === 'ring'
-        ? clamp(Math.min(acx, acy, vw - acx, vh - acy) - ih / 2 - 12, rMin, 124)
-        : 0;
-      return items.map((el, i) => {
-        let cx, cy, o;
-        if (form === 'ring') {
-          const a = -Math.PI / 2 + i * (Math.PI * 2 / items.length);   // 自正上方顺时针铺开
-          cx = acx + Math.cos(a) * radius;
-          cy = acy + Math.sin(a) * radius;
-          o = i;                               // 展开次序：顺时针
-        } else {
-          const k = items.length - 1 - i;      // k=0（GitHub）最贴近珠心
-          const step = (form === 'left' || form === 'right') ? (iw + 10) : SP;
-          const base = (form === 'left' || form === 'right') ? baseH : baseV;
-          const dist = base + k * step;
-          cx = acx + (form === 'left' ? -dist : form === 'right' ? dist : 0);
-          cy = acy + (form === 'up' ? -dist : form === 'down' ? dist : 0);
-          o = k;                               // 展开次序：从球边往外
-        }
-        // 视口钳制：珠子贴边时把药丸往屏幕内推，绝不越界
-        cx = clamp(cx, iw / 2 + 10, vw - iw / 2 - 10);
-        cy = clamp(cy, ih / 2 + 10, vh - ih / 2 - 10);
-        return { x: cx - acx - iw / 2, y: cy - acy - ih / 2, o: o };
-      });
-    }
-
-    const show = () => {
-      clearTimeout(timer);
-      if (USE_GSAP) { gsap.killTweensOf(items); gsap.killTweensOf(orb); }
-      const targets = USE_GSAP ? layoutTargets() : null;
-      if (USE_GSAP) items.forEach((el, i) => {
-        el.style.left = targets[i].x + 'px';
-        el.style.top = targets[i].y + 'px';
-      });
-      menu.hidden = false;
-      void menu.offsetWidth;                   // 强制回流：过渡从收起态开始
-      anchor.classList.add('open');
-      orb.setAttribute('aria-expanded', 'true');
-      if (USE_GSAP) {
-        gsap.fromTo(orb, { scale: 1 }, { scale: 1.12, duration: 0.2, yoyo: true, repeat: 1, ease: 'power2.out', clearProps: 'scale' });
-        items.forEach((el, i) => {
-          const t = targets[i];
-          gsap.fromTo(el,
-            { x: -t.x - 8, y: -t.y - 6, scale: 0.3, opacity: 0 },
-            { x: 0, y: 0, scale: 1, opacity: 1,
-              duration: 0.5, ease: 'back.out(1.7)', delay: 0.04 * t.o,
-              clearProps: 'transform' });
-        });
-      }
-      open = true;
-    };
-    const hide = () => {
-      if (!open) return;
-      anchor.classList.remove('open');
-      orb.setAttribute('aria-expanded', 'false');
-      if (USE_GSAP) {
-        gsap.killTweensOf(items);
-        const targets = layoutTargets();
-        const maxO = items.length - 1;
-        items.forEach((el, i) => {
-          const t = targets[i];
-          gsap.to(el,
-            { x: -t.x - 8, y: -t.y - 6, scale: 0.3, opacity: 0,
-              duration: 0.28, ease: 'power2.in', delay: 0.028 * (maxO - t.o) });
-        });
-        timer = setTimeout(() => {
-          menu.hidden = true;
-          items.forEach((el) => gsap.set(el, { clearProps: 'x,y,scale,opacity' }));
-        }, 460);
-      } else {
-        timer = setTimeout(() => { menu.hidden = true; }, 420);
-      }
-      open = false;
-    };
-
     /* —— 拖拽与锁定 —— */
     let drag = null;
     let justDragged = false;
-    let lastClickT = 0;
+    let lastDragEnd = 0;                     // 松手时刻：供 dblclick 忽略合成双击
     const hasQuick = typeof gsap !== 'undefined' && !!gsap.quickTo;
-    const xTo = hasQuick ? gsap.quickTo(orb, 'x', { duration: 0.3, ease: 'power3' }) : null;
-    const yTo = hasQuick ? gsap.quickTo(orb, 'y', { duration: 0.3, ease: 'power3' }) : null;
+    /* quickTo 实例必须可重建：落位时的 killTweensOf+set 会把内部补间打成
+       僵尸，之后 resetTo 全部空转（「只能拖一次」的元凶），每次松手换新 */
+    let xTo = null, yTo = null;
+    const buildQuickTo = () => {
+      if (!hasQuick) return;
+      xTo = gsap.quickTo(orb, 'x', { duration: 0.3, ease: 'power3' });
+      yTo = gsap.quickTo(orb, 'y', { duration: 0.3, ease: 'power3' });
+    };
+    buildQuickTo();
 
     function clampPos(x, y) {
       const w = anchor.offsetWidth || 74, h = anchor.offsetHeight || 74;
@@ -765,7 +629,8 @@
       freeMode = on;
       orb.classList.toggle('orb-free', on);
       orb.title = on ? '自由拖动中 · 再双击锁定' : '快捷导航 · 双击解锁自由拖动';
-      if (USE_GSAP) gsap.fromTo(orb, { scale: 0.9 }, { scale: 1, duration: 0.45, ease: 'elastic.out(1, 0.45)', clearProps: 'scale' });
+      // （弹性脉冲已删：GSAP 写 scale 会把浮动 translate 折叠进内联 transform
+      //   再也清不干净，CSS 悬停/按压动画跟着被压死——反馈交给 toast + 描边环）
     }
     orb.title = '快捷导航 · 双击解锁自由拖动';
     try {
@@ -785,7 +650,10 @@
     orb.addEventListener('dblclick', (e) => {
       e.preventDefault();
       e.stopPropagation();
-      if (open) hide();
+      // 拖拽松手会合成 click；落点附近的下一次抓取再合成一次 → 浏览器判成
+      // 双击 → 误触发「双击锁定」，球当场锁死（用户：只能拖一次就死）。
+      // 拖拽结束后 600ms 内的双击一律无视
+      if (performance.now() - lastDragEnd < 600) return;
       setFree(!freeMode);
       showToast(freeMode ? '已解锁 · 拖动到喜欢的位置' : '已锁定 · 位置固定');
     });
@@ -793,6 +661,7 @@
       if (e.pointerType === 'mouse' && e.button !== 0) return;
       const r = anchor.getBoundingClientRect();
       drag = { sx: e.clientX, sy: e.clientY, ox: r.left, oy: r.top, moved: false };
+      orb.classList.add('dragging');           // 暂停浮动 + 降模糊（拖动中省重采样）
       try { orb.setPointerCapture(e.pointerId); } catch (err) { /* 忽略 */ }
       if (USE_GSAP) gsap.killTweensOf(orb);
     });
@@ -801,7 +670,6 @@
       const dx = e.clientX - drag.sx, dy = e.clientY - drag.sy;
       if (!drag.moved && Math.hypot(dx, dy) > 6) drag.moved = true;
       if (!drag.moved || !freeMode) return;    // 锁定态：纹丝不动
-      if (open) hide();
       const c = clampPos(drag.ox + dx, drag.oy + dy);
       const nx = c.x - drag.ox, ny = c.y - drag.oy;
       if (xTo) { xTo(nx); yTo(ny); }
@@ -811,13 +679,23 @@
       if (!drag) return;
       const d = drag;
       drag = null;
+      orb.classList.remove('dragging');
       if (!d.moved) return;                    // 纯点击：交给 click/dblclick
-      if (USE_GSAP) gsap.killTweensOf(orb);    // 必须先杀在途 quickTo，否则珠子会继续漂出屏幕
+      lastDragEnd = performance.now();         // 只有真拖过才盖戳：否则单击会误杀合法双击
       if (freeMode) {
-        const c = clampPos(d.ox + (e.clientX - d.sx), d.oy + (e.clientY - d.sy));
+        // 松手「落在眼睛看到的地方」：quickTo 有 0.3s 跟随延迟，按指针目标
+        // 落户会向前瞬跳一段（松手生硬的根因）——先取珠子视觉位置再杀补间
+        const vr = orb.getBoundingClientRect();
+        const c = clampPos(vr.left, vr.top);
+        if (USE_GSAP) gsap.killTweensOf(orb);  // 必须先杀在途 quickTo，否则珠子会继续漂出屏幕
         placeOrb(c.x, c.y);
-        if (USE_GSAP) gsap.set(orb, { x: 0, y: 0, scale: 1 });   // 连带复位：快速抓取可能杀掉解锁脉冲
-        else orb.style.transform = '';
+        // 缓存同步零位（下次抓取不跳）→ 再彻底清内联。不能用 clearProps：
+        // GSAP 3.13 会把浮动动画的 translate 属性折叠进缓存，清完又写回，
+        // 残留内联 transform 会把 CSS 的悬停/按压动画永久压死
+        if (USE_GSAP) gsap.set(orb, { x: 0, y: 0, scale: 1 });
+        orb.style.transform = '';
+        orb.style.translate = '';
+        buildQuickTo();                        // 换新实例：僵尸 quickTo 会吞掉下一次拖拽
         try { localStorage.setItem('orb_pos', JSON.stringify({ x: Math.round(c.x), y: Math.round(c.y) })); } catch (err) { /* 忽略 */ }
         justDragged = true;
         setTimeout(() => { justDragged = false; }, 140);
@@ -825,10 +703,15 @@
         // 锁定态被拖：晃一下 + 提示胶囊，告诉用户先双击解锁
         if (USE_GSAP) {
           gsap.killTweensOf(orb);
-          gsap.fromTo(orb, { x: -5 }, { x: 5, duration: 0.055, repeat: 5, yoyo: true, ease: 'none', clearProps: 'x' });
+          gsap.fromTo(orb, { x: -5 }, { x: 5, duration: 0.055, repeat: 5, yoyo: true, ease: 'none',
+            onComplete: () => {       // 晃完缓存归零 + 清内联，别让 GSAP 折叠值残留
+              gsap.set(orb, { x: 0, y: 0, scale: 1 });
+              orb.style.transform = '';
+              orb.style.translate = '';
+            } });
         }
         showToast('双击解锁 · 自由拖动');
-        justDragged = true;                    // 吞掉拖拽结束后的合成 click（否则会误开菜单）
+        justDragged = true;                    // 吞掉拖拽结束后的合成 click（否则会误触脉冲）
         setTimeout(() => { justDragged = false; }, 140);
       }
     };
@@ -839,37 +722,138 @@
       e.stopPropagation();
       if (e.detail >= 2) return;               // 双击的第二下：交给 dblclick
       if (justDragged) { justDragged = false; return; }
-      if (performance.now() - lastClickT < 350) { lastClickT = 0; return; }
-      lastClickT = performance.now();
-      // 绽放方向 = 珠心 → 点击坐标
-      const r = orb.getBoundingClientRect();
-      const dx = e.clientX - (r.left + r.width / 2);
-      const dy = e.clientY - (r.top + r.height / 2);
-      const len = Math.hypot(dx, dy);
-      if (len > 6) form_ = pickForm(dx, dy, len);
-      open ? hide() : show();
-    });
-    menu.addEventListener('click', (e) => e.stopPropagation());
-    document.addEventListener('click', hide);
-    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') hide(); });
-    window.addEventListener('scroll', () => { if (open) hide(); }, { passive: true });
-
-    menu.querySelectorAll('[data-go]').forEach((b) => {
-      b.addEventListener('click', () => {
-        hide();
-        if (b.dataset.go === 'top') {
-          window.scrollTo({ top: 0, behavior: REDUCED ? 'auto' : 'smooth' });
-        } else {
-          const el = document.getElementById(b.dataset.go);
-          if (el) el.scrollIntoView({ behavior: REDUCED ? 'auto' : 'smooth' });
-        }
-      });
+      // 菜单与 GSAP 脉冲都已退休：按压反馈交给 CSS :active，不再往珠子的
+      // 内联 transform 里写任何东西（那是悬浮/悬停动画被压死的根源）
     });
   }
 
+  /* ================= 项目卫星：绕珠小行星 =================
+   * 珠子是行星，C.orbPlanets 的三个仓库是玻璃小卫星：倾斜椭圆轨道，
+   * 转到球「背后」缩小变暗、z 沉到球后，转回「面前」浮到球面上，
+   * 真 3D 环绕感；滚动越猛转得越快（动能耦合，摩擦衰减）。
+   * 本体是 <a>，点卫星直达 GitHub 仓库；单 rAF 只写 transform/
+   * filter/z，成本≈珠子浮动。REDUCED / perf-lite 定格成三颗静止
+   * 卫星（仍可点）。 */
+  function initOrbPlanets() {
+    const anchor = byId('orb-anchor');
+    if (!anchor || !Array.isArray(C.orbPlanets) || !C.orbPlanets.length) return;
+    const base = (C.footer.githubUrl || 'https://github.com').replace(/\/+$/, '');
+
+    const moons = C.orbPlanets.map((p) => {
+      const a = document.createElement('a');
+      a.className = 'orb-moon';
+      a.href = base + '/' + p.repo;
+      a.target = '_blank';
+      a.rel = 'noopener';
+      a.draggable = false;
+      a.setAttribute('aria-label', '打开 GitHub 项目 ' + p.repo);
+      a.innerHTML = '<i class="moon-core" style="--mc:' + p.color + '"></i>' +
+                    '<span class="moon-label">' + p.repo + '</span>';
+      document.body.appendChild(a);   // fixed 挂 body：不受锚点层叠上下文限制
+      return a;
+    });
+
+    /* 几何：半径随珠径缩放；转速要肉眼可感（一圈 5~10s，一圈 15s+ 等于静止，
+       用户点名批评过）；一颗逆行制造层次，初始相位均匀铺开 */
+    const GEO = [
+      { k: 0.78, ph: 0.9, sp: 1.15 },
+      { k: 0.97, ph: 2.6, sp: -0.85 },
+      { k: 1.16, ph: 4.4, sp: 0.65 },
+    ];
+    const TILT = 0.5;                 // 纵轴压扁 = 轨道面倾斜的透视
+    let radii = [];
+    function measure() {
+      const ballR = (anchor.offsetWidth || 74) / 2;
+      radii = GEO.map((g) => ballR * g.k + 18);   // 略离球壳，不贴边
+    }
+    measure();
+
+    /* 滚动动能：滚得越猛甩得越快（峰值 ~6 rad/s ≈ 每秒一整圈），
+       摩擦 ~1.5s 衰减回常速；第四屏是场景内滚，一并接入 */
+    let boost = 0;
+    let lastSY = window.scrollY;
+    const kick = (dy) => {
+      boost = clamp(boost + clamp(dy, -120, 120) * 0.015, -6, 6);
+    };
+    window.addEventListener('scroll', () => {
+      const dy = window.scrollY - lastSY;
+      lastSY = window.scrollY;
+      kick(dy);
+    }, { passive: true });
+    const showSc = document.getElementById('s-showcase');
+    if (showSc) showSc.addEventListener('scroll', function () {
+      kick(this.scrollTop - (this.__lastTop || 0));
+      this.__lastTop = this.scrollTop;
+    }, { passive: true });
+
+    const phases = GEO.map((g) => g.ph);
+    let raf = 0;
+    let lastT = 0;
+    function place(moon, i, cx, cy, front) {
+      const a = phases[i];
+      const x = Math.cos(a) * radii[i];
+      const y = Math.sin(a) * radii[i] * TILT;
+      moon.style.transform = 'translate(' + (cx + x).toFixed(1) + 'px,' + (cy + y).toFixed(1) +
+        'px) scale(' + (front ? 1 : 0.78).toFixed(3) + ')';
+      moon.style.zIndex = front ? '853' : '845';          // 珠子锚点是 850：前后换位
+      moon.style.filter = front ? '' : 'brightness(0.6) saturate(0.8)';
+    }
+    function orbitCenter() {
+      const ar = anchor.getBoundingClientRect();
+      const maxRX = Math.max(...radii) + 20;
+      const maxRY = Math.max(...radii) * TILT + 20;
+      return {
+        x: clamp(ar.left + ar.width / 2, maxRX, window.innerWidth - maxRX),
+        y: clamp(ar.top + ar.height / 2, maxRY, window.innerHeight - maxRY),
+        bx: ar.left + ar.width / 2,            // 球心原位（不 clamp）：遮挡检测用
+        by: ar.top + ar.height / 2,
+        br: ar.width / 2,
+      };
+    }
+    function settle() {     // 静态布局（REDUCED / perf-lite）：三颗摆开仍可点
+      const c = orbitCenter();
+      for (let i = 0; i < moons.length; i++) {
+        phases[i] = GEO[i].ph;
+        place(moons[i], i, c.x, c.y, Math.sin(phases[i]) > 0);
+      }
+    }
+    function frame(now) {
+      const dt = Math.min(48, lastT ? now - lastT : 16);
+      lastT = now;
+      if (document.body.classList.contains('perf-lite')) {  // 降级：定格收摊
+        raf = 0;
+        settle();
+        return;
+      }
+      const c = orbitCenter();
+      for (let i = 0; i < moons.length; i++) {
+        phases[i] += (GEO[i].sp + boost * Math.sign(GEO[i].sp)) * dt / 1000;
+        place(moons[i], i, c.x, c.y, Math.sin(phases[i]) > 0);
+        // 掠过球面的前排卫星让出指针：34px 的链接珠压在球心上，
+        // 会把用户对珠子的点击/抓取整个截走（「只能拖一次」的帮凶）
+        const overBall = Math.sin(phases[i]) > 0 &&
+          Math.hypot(c.x + Math.cos(phases[i]) * radii[i] - c.bx,
+                     c.y + Math.sin(phases[i]) * radii[i] * TILT - c.by) < c.br + 16;
+        moons[i].style.pointerEvents = overBall ? 'none' : 'auto';
+      }
+      boost *= Math.exp(-dt / 600);          // 摩擦衰减：甩劲 ~1.5s 溜回常速
+      raf = requestAnimationFrame(frame);
+    }
+
+    if (REDUCED) {
+      settle();
+      window.addEventListener('resize', settle);
+      anchor.addEventListener('pointerup', () => setTimeout(settle, 350));  // 拖完重新贴靠
+      return;
+    }
+    window.addEventListener('resize', measure);
+    raf = requestAnimationFrame(frame);
+  }
+
   /* ================= 固定导航栏 =================
-   * 常驻底部中央的玻璃药丸条：五项直达 + 当前所在屏高亮。
-   * 导航珠仍在右下角作为「额外入口」（可双击解锁拖动），两者互不遮挡。 */
+   * 桌面：右侧竖排玻璃条常驻；小屏：底部居中横向药丸，且随滚动自动
+   * 收纳（下滑阅读退场、上滑/点按唤出），不再悬在正文上压字。
+   * 导航珠仍是「额外入口」，clampPos 会自动避让两种形态的 dock。 */
   function initDock() {
     const dock = byId('dock');
     if (!dock) return;
@@ -885,6 +869,55 @@
     });
     const gh = byId('dock-github');
     if (gh) gh.href = C.footer.githubUrl;
+
+    /* —— 小屏自动收纳：只认真实滚动的方向；跳转期间挂起 —— */
+    const mqlSmall = window.matchMedia('(max-width: 760px), (max-height: 600px)');
+    let lastY = window.scrollY;
+    let holdUntil = 0;
+    const setTucked = (on) => dock.classList.toggle('dock-hide', on);
+    dock.addEventListener('click', () => {
+      holdUntil = performance.now() + 1200;
+      setTucked(false);
+    });
+    window.addEventListener('scroll', () => {
+      const y = window.scrollY;
+      if (!mqlSmall.matches) { setTucked(false); lastY = y; return; }   // 桌面竖排常驻
+      if (performance.now() < holdUntil) { lastY = y; return; }
+      const dy = y - lastY;
+      if (Math.abs(dy) < 8) return;
+      lastY = y;
+      setTucked(dy > 0 && y > 140);
+    }, { passive: true });
+
+    /* —— 首访贴士（仅小屏，一次性）：一句话讲清珠子和底部图标 —— */
+    try {
+      if (mqlSmall.matches && !localStorage.getItem('dock_hint_shown')) {
+        localStorage.setItem('dock_hint_shown', '1');
+        setTimeout(() => {
+          dock.classList.add('dock-hint');
+          document.body.classList.add('dock-hint-on');     // 滚动提示暂避 3s
+          setTimeout(() => {
+            dock.classList.remove('dock-hint');
+            document.body.classList.remove('dock-hint-on');
+          }, 3200);
+        }, 2600);
+      }
+    } catch (e) { /* 忽略 */ }
+
+    /* —— 断点跨越换场：右侧竖排 ↔ 底部横排 ——
+       媒体查询切换是瞬跳且旧布局无法冻结，把它拆成「快速隐去 →
+       从新家方向浮入」：change 触发时新布局已生效，先同步藏住避免
+       闪现跳变后的形态，再自下（底部栏）/自右（侧边栏）入场。 */
+    mqlSmall.addEventListener('change', (e) => {
+      setTucked(false);                        // 换场先现身，收纳交还滚动方向判断
+      if (REDUCED) return;                     // 减速动效：直达，不加戏
+      dock.classList.remove('dock-swap-in', 'dock-from-right');
+      dock.classList.add('dock-swap-out', e.matches ? 'dock-from-bottom' : 'dock-from-right');
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        dock.classList.remove('dock-swap-out');
+        dock.classList.add('dock-swap-in');    // 保留不清：移除会重启基础入场（带延迟眨眼）
+      }));
+    });
   }
 
   /* 当前所在屏 → 高亮对应导航项（由 initHashNav 驱动） */
@@ -902,6 +935,65 @@
     byId('scroll-hint').addEventListener('click', () => {
       byId('s-creation').scrollIntoView({ behavior: REDUCED ? 'auto' : 'smooth' });
     });
+  }
+
+  /* ================= 首屏欢迎词：Welcome 逐字打出 + 前往探索 =================
+   * 给空旷首屏一句开场白：粗体 Welcome 逐字敲出（节奏带随机，像手打不是
+   * 机械拍），光标闪烁收尾后隐去，「前往探索」玻璃按钮随后浮起。
+   * 深链接直进其它屏的用户不打扰——首次回首屏时才开始打字。 */
+  function initWelcomeType() {
+    const host = byId('s-hero');
+    const line = byId('welcome-line');
+    const cta = byId('hero-cta');
+    if (!host || !line || !cta) return;
+    cta.addEventListener('click', () => {
+      byId('s-creation').scrollIntoView({ behavior: REDUCED ? 'auto' : 'smooth' });
+    });
+    const play = () => {
+      cta.classList.add('on');
+      const word = 'Welcome';
+      if (REDUCED) {
+        const s = document.createElement('span');
+        s.className = 'wc on';
+        s.textContent = word;
+        line.appendChild(s);
+        return;
+      }
+      const caret = document.createElement('i');
+      caret.className = 'welcome-caret';
+      caret.setAttribute('aria-hidden', 'true');
+      line.appendChild(caret);
+      let i = 0;
+      const tick = () => {
+        if (i < word.length) {
+          const s = document.createElement('span');
+          s.className = 'wc';
+          s.textContent = word[i++];
+          line.insertBefore(s, caret);
+          setTimeout(() => s.classList.add('on'), 30);  // 模糊聚焦落字，不是白字直贴
+          setTimeout(tick, 110 + Math.random() * 80);   // 手打节奏：不是机械节拍
+        } else {
+          caret.classList.add('off');
+          setTimeout(() => {
+            caret.remove();
+            line.classList.add('done');                 // 收笔：一道光泽扫过词面
+          }, 600);
+        }
+      };
+      tick();
+    };
+    if ('IntersectionObserver' in window && window.scrollY > window.innerHeight * 0.5) {
+      // 深链接直进其它屏：开场白不打扰，首次回首屏时才敲
+      const io = new IntersectionObserver((es) => {
+        if (es.some((en) => en.isIntersecting)) {
+          io.disconnect();
+          setTimeout(play, 600);
+        }
+      }, { threshold: 0.35 });
+      io.observe(host);
+    } else {
+      setTimeout(play, 1200);              // 首屏就在眼前：等入场浪落定就开打
+    }
   }
 
   /* ================= 地址栏深链接 =================
@@ -1158,13 +1250,14 @@
   mountStatic();
   initTitleChars();
   initGlassToggle();
-  initWelcome();
   initAvatar();
   initReveal();
   initProjects();
   initScrollHint();
+  initWelcomeType();
   initHashNav();
   initOrbNav();
+  initOrbPlanets();
   initDock();
   initPointer();
   initHeroVideo();

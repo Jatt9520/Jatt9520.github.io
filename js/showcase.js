@@ -134,9 +134,26 @@
     const btnPrev = byId('morph-prev');
     const btnNext = byId('morph-next');
     const btnAuto = byId('morph-auto');
+    const btnMat = byId('morph-mat');
     const groups = {};
     stage.querySelectorAll('.m-group').forEach((el) => { groups[el.dataset.g] = el; });
     let idx = 0, auto = false, autoTimer = null, visible = true;
+
+    /* —— 专属材质切换：液态玻璃 ↔ 青橙彩釉（原来的烤漆渐变），记忆本地 —— */
+    const MAT_KEY = 'morph_material';
+    let enamel = false;
+    try { enamel = localStorage.getItem(MAT_KEY) === 'enamel'; } catch (e) { /* 忽略 */ }
+    function applyMat() {
+      box.classList.toggle('mat-enamel', enamel);
+      btnMat.textContent = enamel ? '材质 · 青橙彩釉' : '材质 · 液态玻璃';
+      btnMat.setAttribute('aria-pressed', String(enamel));
+    }
+    btnMat.addEventListener('click', () => {
+      enamel = !enamel;
+      applyMat();
+      try { localStorage.setItem(MAT_KEY, enamel ? 'enamel' : 'glass'); } catch (e) { /* 忽略 */ }
+    });
+    applyMat();
 
     if (USE_GSAP) Object.keys(groups).forEach((k) => { groups[k].style.transition = 'none'; });   // 防与 GSAP 双重平滑
     if (REDUCED) btnAuto.disabled = true;

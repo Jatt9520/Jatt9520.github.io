@@ -426,6 +426,94 @@ body.dark .theme-toggle .icon-sun { display: block; }
 .scroll-hint:hover { transform: translateX(-50%) translateY(-3px); }
 .scroll-hint svg { animation: nudge 1.8s ease-in-out infinite; }
 
+/* ---------- 首屏欢迎词：加粗逐字打出 + 前往探索 ----------
+   给空旷首屏一句开场白：粗体 Welcome 逐字敲出、光标闪烁收尾，
+   「前往探索」玻璃按钮随后浮起。pointer-events 全关，按钮单独开 */
+.hero-welcome {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 33%;                    /* 天空段居中：避开身份栏与底部提示 */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+  z-index: 3;
+  pointer-events: none;
+}
+.welcome-line {
+  margin: 0;
+  min-height: 1.2em;           /* 打字前先占位，逐字出现不引起跳动 */
+  font-size: clamp(52px, 10vw, 96px);
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  line-height: 1.08;
+}
+/* 液态玻璃字：青→白→桃金渐变嵌进笔画（全站同一组颜色），
+   每个字母落定 = 模糊聚焦 + 上浮，打完一道光泽从左至右扫过词面 */
+.welcome-line .wc {
+  display: inline-block;
+  background: linear-gradient(105deg, #d8eef2 0%, #a8d8dc 30%, #f4d3b2 55%, #ffffff 78%, #cfe9ec 100%);
+  background-size: 220% 100%;
+  background-position: 0% 0;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  opacity: 0;
+  transform: translateY(18px);
+  filter: blur(12px) drop-shadow(0 6px 24px rgba(8, 32, 40, 0.45));
+  transition: opacity 0.5s var(--out), transform 0.65s var(--spring), filter 0.5s var(--out);
+}
+.welcome-line .wc.on {
+  opacity: 1;
+  transform: none;
+  filter: blur(0) drop-shadow(0 6px 24px rgba(8, 32, 40, 0.5)) drop-shadow(0 0 26px rgba(143, 208, 213, 0.22));
+}
+.welcome-line.done .wc { animation: wordSheen 1.2s var(--out) forwards; }
+@keyframes wordSheen {
+  from { background-position: 0% 0; }
+  to   { background-position: 100% 0; }
+}
+.welcome-caret {
+  display: inline-block;
+  width: 2px;
+  height: 0.82em;
+  margin-left: 8px;
+  border-radius: 1px;
+  background: linear-gradient(180deg, #bfe3e6, #f4d3b2);
+  box-shadow: 0 0 12px rgba(143, 208, 213, 0.8);
+  vertical-align: -0.06em;
+  animation: caretBlink 1.1s var(--out) infinite;
+}
+.welcome-caret.off { opacity: 0; transition: opacity 0.5s var(--out); animation: none; }
+@keyframes caretBlink { 50% { opacity: 0.12; } }   /* 平滑呼吸，不是硬切 */
+.hero-cta {
+  pointer-events: auto;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 15px;
+  letter-spacing: 0.2em;
+  text-indent: 0.2em;          /* 视觉居中：抵消末字距 */
+  color: #fff;
+  text-shadow: 0 1px 8px rgba(8, 32, 40, 0.45);
+  padding: 13px 34px;
+  border: none;
+  border-radius: 999px;
+  /* 烟黑玻璃：日落强光区也能站稳（白玻璃在此会被太阳洗掉） */
+  background-image: linear-gradient(115deg, rgba(23, 38, 43, 0.44), rgba(23, 38, 43, 0.26) 45%, rgba(23, 38, 43, 0.4));
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
+  backdrop-filter: blur(14px) saturate(160%);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.3),
+    0 14px 34px rgba(8, 32, 40, 0.34);
+  opacity: 0;
+  transform: translateY(14px);
+  transition: opacity 0.5s var(--out), transform 0.5s var(--spring), scale 0.3s var(--spring), box-shadow 0.3s var(--out);
+}
+.hero-cta.on { opacity: 1; transform: none; }
+.hero-cta:hover { scale: 1.04; box-shadow: inset 0 0 0 1px rgba(255,255,255,.55), 0 18px 42px rgba(8,32,40,.36); }
+.hero-cta:active { scale: 0.97; }
+
 /* ---------- ⑥ 头像（身份栏内）与自我介绍展开 ---------- */
 .avatar {
   width: 64px;
@@ -825,49 +913,6 @@ body.dark .project-points li::before { background: #7fc4c9; }
 body.dark .footer-link:hover { color: #7fc4c9; }
 .footer-copy { letter-spacing: 0.04em; }
 
-/* ---------- ⑪ 欢迎弹窗 ---------- */
-/* 浅色主题下弹窗叠在深色照片上：强制白玻璃保证深色文字可读 */
-body:not(.dark) .modal-card {
-  background-image: linear-gradient(115deg, rgba(255,255,255,.82), rgba(255,255,255,.62) 42%, rgba(255,255,255,.76));
-}
-.modal {
-  position: fixed;
-  inset: 0;
-  z-index: 2000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 24px;
-  background: rgba(6, 22, 28, 0.4);
-  -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(10px);
-  opacity: 0;
-  transition: opacity 0.4s var(--out);
-}
-.modal.show { opacity: 1; }
-.modal[hidden] { display: none; }
-.modal-card {
-  width: min(420px, 92vw);
-  padding: 44px 40px 38px;
-  text-align: center;
-  transform: scale(0.72) translateY(24px);
-  opacity: 0;
-  transition: transform 0.6s var(--spring), opacity 0.3s var(--out);
-}
-.modal.show .modal-card { transform: none; opacity: 1; }
-.modal-title {
-  font-size: 22px;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  margin-bottom: 12px;
-}
-.modal-text {
-  font-size: 14.5px;
-  color: var(--muted);
-  line-height: 2.1;
-  margin-bottom: 26px;
-}
-
 /* ---------- ⑫ 按钮体系 ---------- */
 .ghost-btn {
   display: inline-flex;
@@ -897,30 +942,7 @@ body:not(.dark) .modal-card {
 body.dark .ghost-btn { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.16); }
 body.dark .ghost-btn:hover { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.32), 0 10px 26px rgba(0, 0, 0, 0.4); }
 
-.cta-btn {
-  border: none;
-  cursor: pointer;
-  font-family: inherit;
-  font-size: 15px;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  text-indent: 0.14em;
-  color: #fff;
-  padding: 13px 42px;
-  border-radius: 999px;
-  background: linear-gradient(135deg, #3d868d, #2e6f75 55%, #245a60);
-  box-shadow: 0 14px 34px rgba(30, 90, 96, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.35);
-  transition: transform 0.4s var(--spring), box-shadow 0.35s var(--out), filter 0.3s;
-}
-.cta-btn:hover {
-  transform: translateY(-3px) scale(1.03);
-  box-shadow: 0 20px 44px rgba(30, 90, 96, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.4);
-  filter: brightness(1.06);
-}
-.cta-btn:active { transform: translateY(-1px) scale(0.98); }
-
-
-/* ---------- 快捷导航球（固定悬浮 + 弹出菜单） ---------- */
+/* ---------- 项目行星（固定悬浮玻璃珠，卫星见 .orb-moon） ---------- */
 .orb-anchor {
   position: fixed;
   right: calc(18px + env(safe-area-inset-right, 0px));
@@ -944,43 +966,38 @@ body.dark .ghost-btn:hover { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.3
     inset -10px -12px 28px rgba(8, 32, 40, 0.2),
     0 18px 44px rgba(8, 32, 40, 0.22),
     0 0 38px rgba(61, 134, 141, 0.38);
-  /* 专属轻浮动：translate 属性驱动（transform 留给悬停），5.5s 一眼可感的呼吸 */
+  /* 专属轻浮动：translate 属性驱动，5.5s 一眼可感的呼吸。
+     三个变换通道分家互不打架：浮动=translate（这里）、拖拽=transform
+     （GSAP 独占，见 .dragging）、悬停/按压=scale（见 :hover/:active）。
+     transform 上绝对不能挂 transition——它会把 GSAP 拖拽的每帧写入
+     变成 0.35s 插值，珠子在泥里拖不动（实测根因） */
   animation: orbBob 5.5s ease-in-out infinite;
-  transition: transform 0.35s var(--spring), box-shadow 0.45s var(--out);
+  transition: box-shadow 0.45s var(--out), scale 0.35s var(--spring);
 }
 .orb-anchor .orb-c:hover {
-  transform: translateY(-3px) scale(1.05);
+  scale: 1.05;
   box-shadow:
     inset 0 0 22px rgba(255, 255, 255, 0.14),
     inset -10px -12px 28px rgba(8, 32, 40, 0.2),
     0 22px 54px rgba(8, 32, 40, 0.28),
     0 0 52px rgba(61, 134, 141, 0.5);
 }
-.orb-anchor .orb-c:active { transform: scale(0.94); }
+.orb-anchor .orb-c:active { scale: 0.94; }
 .orb-anchor .orb-c { touch-action: none; cursor: pointer; }   /* 锁定态是「点」，不是「抓」 */
-.orb-anchor .orb-c.dragging { animation-play-state: paused; cursor: grabbing; }
+.orb-anchor .orb-c.dragging {
+  animation-play-state: paused;
+  cursor: grabbing;
+  transition: none;              /* 拖拽中 GSAP 每帧直写，不吃任何 CSS 过渡 */
+  /* 拖动中珠子每帧位移都在逼 backdrop-filter 全量重采样，手机上这是掉帧源：
+     抓在手里时降到轻模糊（反正手指挡着），松手恢复完整折射 */
+  -webkit-backdrop-filter: blur(1px) saturate(130%);
+  backdrop-filter: blur(1px) saturate(130%);
+}
 @keyframes orbBob {
   0%, 100% { translate: 0 0; }
   50%      { translate: 0 -6px; }
 }
 
-/* GSAP 布局：菜单改珠心锚点 + 条目绝对定位（摆位由 JS 计算），
-   条目闲时各自轻呼吸（translate 属性，不打架 GSAP 的 transform） */
-.orb-menu.gl-free {
-  right: auto;
-  bottom: auto;
-  left: 50%;
-  top: 50%;
-  width: 0;
-  height: 0;
-  display: block;
-  gap: 0;
-}
-.orb-menu.gl-free .orb-item {
-  position: absolute;
-  left: 0;
-  top: 0;
-}
 /* 双击解锁后的自由拖动态：青色描边环 + 抓取光标 */
 .orb-anchor .orb-c.orb-free {
   cursor: grab;
@@ -1059,64 +1076,65 @@ body.dark .ghost-btn:hover { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.3
 .orb-anchor.open .orb-glyph { transform: rotate(90deg) scale(1.15); }
 .orb-anchor:hover .orb-glyph { transform: scale(1.2); }
 
-/* 弹出菜单：玻璃药丸纵向堆叠，自珠心向上错峰展开 */
-.orb-menu {
-  position: absolute;
-  bottom: calc(100% + 14px);
-  right: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 9px;
-}
-.orb-menu[hidden] { display: none; }
-.orb-item {
-  border: none;
+/* ---------- 项目卫星：绕珠小行星 ----------
+   JS（initOrbPlanets）逐帧写 translate/scale，轨道是倾斜椭圆：
+   转到球「背后」时缩小变暗、z 沉到珠子之下，转回「面前」浮到珠子上，
+   形成真 3D 环绕感。本体是 <a>，点击直达 GitHub 仓库。 */
+.orb-moon {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 34px;                 /* 视觉 20px + 触控余量 */
+  height: 34px;
+  margin: -17px 0 0 -17px;     /* 中心对齐到 translate 落点 */
+  border-radius: 50%;
+  display: block;
+  z-index: 853;                /* 珠子(850 锚点)之前；转到背后由 JS 降到 845 */
   cursor: pointer;
-  font-family: inherit;
-  font-size: 13px;
-  letter-spacing: 0.06em;
-  color: var(--ink);
-  padding: 9px 18px;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;          /* 卫星不做手势，防劫持滚动 */
+  will-change: transform;
+  background:
+    radial-gradient(circle at 32% 26%, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0.05) 42%, rgba(255, 255, 255, 0) 62%),
+    radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.06) 58%, rgba(255, 255, 255, 0.24) 100%);
+  box-shadow:
+    0 5px 14px rgba(8, 32, 40, 0.3),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.28);
+}
+.orb-moon .moon-core {
+  position: absolute;
+  inset: 7px;                  /* 20px 语言色内核 */
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 32% 28%, rgba(255, 255, 255, 0.6), rgba(255, 255, 255, 0) 46%),
+    var(--mc, #3178c6);
+  box-shadow: inset -2px -3px 5px rgba(8, 32, 40, 0.35);
+  pointer-events: none;
+}
+.orb-moon .moon-label {
+  position: absolute;
+  left: 50%;
+  top: -7px;
+  transform: translate(-50%, -100%) scale(0.92);
+  padding: 4px 11px;
   border-radius: 999px;
-  background-image: var(--glass-bg);
-  background-color: rgba(255, 255, 255, 0.24);
-  -webkit-backdrop-filter: blur(16px) saturate(170%);
-  backdrop-filter: blur(16px) saturate(170%);
-  box-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, 0.32),
-    0 10px 26px rgba(8, 32, 40, 0.24);
-  text-decoration: none;
-  white-space: nowrap;
+  background: rgba(28, 38, 44, 0.92);
+  color: #fff;
+  font-size: 11px;
+  letter-spacing: 0.04em;
   line-height: 1.4;
-  min-width: 112px;
-  text-align: center;
+  white-space: nowrap;
   opacity: 0;
-  transform: translateX(16px) scale(0.9);
-  transition:
-    opacity 0.32s var(--out),
-    transform 0.45s var(--spring),
-    box-shadow 0.3s var(--out);
-}
-body.dark .orb-item {
-  background-color: rgba(24, 34, 40, 0.4);
-  color: var(--ink);
+  pointer-events: none;
   box-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, 0.14),
-    0 10px 26px rgba(0, 0, 0, 0.4);
+    inset 0 0 0 1px rgba(255, 255, 255, 0.22),
+    0 8px 20px rgba(8, 32, 40, 0.3);
+  transition: opacity 0.25s var(--out), transform 0.25s var(--out);
 }
-.orb-item:hover {
-  transform: translateX(-4px) scale(1.04);
-  box-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, 0.55),
-    0 14px 32px rgba(8, 32, 40, 0.3);
-}
-.orb-anchor.open .orb-item { opacity: 1; transform: none; }
-.orb-anchor.open .orb-item:nth-child(1) { transition-delay: 0.05s, 0.05s, 0s; }
-.orb-anchor.open .orb-item:nth-child(2) { transition-delay: 0.11s, 0.11s, 0s; }
-.orb-anchor.open .orb-item:nth-child(3) { transition-delay: 0.17s, 0.17s, 0s; }
-.orb-anchor.open .orb-item:nth-child(4) { transition-delay: 0.23s, 0.23s, 0s; }
-.orb-anchor.open .orb-item:nth-child(5) { transition-delay: 0.29s, 0.29s, 0s; }
+.orb-moon:hover .moon-label,
+.orb-moon:focus-visible .moon-label { opacity: 1; transform: translate(-50%, -100%) scale(1); }
+.orb-moon:hover { filter: brightness(1.12); }
 
 /* 珠子加 glyph 后图标层在 canvas 折射之上 */
 .orb-anchor .orb-c { overflow: visible; }
@@ -1140,9 +1158,31 @@ body.dark .orb-item {
   padding: 8px 6px;
   border-radius: 22px;
   animation: dockIn 0.85s var(--out) 0.35s backwards;
+  /* 小屏「自动收纳」用（桌面常驻不触发）：transform 让位给入场动画，动画结束后接管 */
+  transition: transform 0.5s var(--out), opacity 0.35s var(--out);
+}
+.dock.dock-hide { transform: translateY(calc(100% + 16px)); opacity: 0; pointer-events: none; }
+
+/* 断点跨越换场（initDock 的 matchMedia change 驱动）：右侧竖排 ↔ 底部横排
+   的瞬跳被拆成「快速隐去 → 从新家方向浮入」。swap-in 类保留不清——
+   移除会让基础入场动画（带延迟）重启，出现第二次眨眼。 */
+.dock.dock-swap-out { opacity: 0; transition: opacity 0.16s var(--out); }
+.dock.dock-swap-in { animation: dockSwapBottom 0.42s var(--out) backwards; }
+.dock.dock-swap-in.dock-from-right { animation-name: dockSwapRight; }
+@keyframes dockSwapBottom {
+  from { opacity: 0; transform: translateY(20px) scale(0.96); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes dockSwapRight {
+  from { opacity: 0; transform: translateX(20px) scale(0.96); }
+  to   { opacity: 1; transform: none; }
 }
 @keyframes dockIn {
   from { opacity: 0; transform: translateX(18px); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes dockInUp {
+  from { opacity: 0; transform: translateY(16px); }
   to   { opacity: 1; transform: none; }
 }
 .dock-item {
@@ -1215,7 +1255,7 @@ body.dark .dock-item.active { background: rgba(46, 111, 117, 0.42); color: #9fd8
   html { scroll-behavior: auto; scroll-snap-type: y proximity; }
   .hero-bg img, .orb, .page-aurora i, .page-flow::after, .scroll-hint svg { animation: none; }
   .orb-anchor .orb-c { animation: none; }
-  .dock { animation: none; }
+  .dock { animation: none; transition: none; }
   .orb-halo::before, .orb-halo::after { animation: none; opacity: 0.4; }
 
   .hero-fx { display: none; }
@@ -1225,6 +1265,16 @@ body.dark .dock-item.active { background: rgba(46, 111, 117, 0.42); color: #9fd8
     transform: none;
     transition: none;
   }
+  /* 欢迎词：减速动效下不打字，直接完整呈现 */
+  .hero-cta { opacity: 1; transform: none; }
+  .welcome-caret { display: none; }
+  .welcome-line .wc {
+    opacity: 1;
+    transform: none;
+    filter: drop-shadow(0 6px 24px rgba(8, 32, 40, 0.5));
+    transition: none;
+  }
+  .welcome-line.done .wc { animation: none; }
 }
 
 /* ---------- ⑮ 响应式 ---------- */
@@ -1273,14 +1323,48 @@ body.perf-lite .footer-bar {
 
   .creation-panel { padding: 30px 24px 28px; }
   .big-text { font-size: 15px; line-height: 2.15; }
-  .footer-bar { bottom: calc(22px + env(safe-area-inset-bottom, 0px)); font-size: 11.5px; gap: 3px 10px; }
-  .dock { right: calc(10px + env(safe-area-inset-right, 0px)); top: 104px; bottom: 96px; padding: 7px 5px; }
-  .dock-item { padding: 9px 11px; }
+  .footer-bar { bottom: calc(64px + env(safe-area-inset-bottom, 0px)); font-size: 11.5px; gap: 3px 10px; }
+  /* dock：小屏挪到屏幕底部居中的横向药丸条（拇指热区），
+     不再悬在正文右侧压字；bottom 用安全区适配全面屏手势条 */
+  .dock {
+    right: 0; left: 0; top: auto;
+    bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+    margin-block: 0;
+    margin-inline: auto;
+    flex-direction: row;
+    gap: 2px;
+    padding: 5px 8px;
+    border-radius: 999px;
+    max-width: calc(100vw - 20px);
+    animation-name: dockInUp;    /* 从底部浮起，与常驻位置呼应 */
+  }
+  .dock-item { padding: 11px 14px; }   /* 触控目标 ≥ 40px */
   .dock-txt { display: none; }   /* 小屏只留图标 */
-  .dock-ico { font-size: 16px; }
+  .dock-ico { font-size: 17px; }
+  /* 滚动提示 / 页脚：抬到 dock 上方，互不重叠 */
+  .scroll-hint { bottom: calc(62px + env(safe-area-inset-bottom, 0px)); }
+  /* 首访贴士（一次性，initDock 驱动）：一句话讲清珠子和图标是干嘛的 */
+  .scroll-hint { transition: transform 0.35s var(--spring), box-shadow 0.35s var(--out), opacity 0.3s var(--out); }
+  body.dock-hint-on .scroll-hint { opacity: 0; }
+  .dock.dock-hint::after {
+    content: '玻璃珠是项目入口 · 下方图标直达各屏';
+    position: absolute;
+    left: 50%;
+    bottom: calc(100% + 10px);
+    transform: translateX(-50%);
+    padding: 7px 15px;
+    border-radius: 999px;
+    background: rgba(28, 38, 44, 0.92);
+    color: #fff;
+    font-size: 11.5px;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+    box-shadow:
+      inset 0 0 0 1px rgba(255, 255, 255, 0.22),
+      0 10px 26px rgba(8, 32, 40, 0.3);
+  }
   .orb-anchor { right: 14px; bottom: calc(84px + env(safe-area-inset-bottom, 0px)); }
   .orb-anchor .orb-c { width: 64px; height: 64px; }
-  .orb-item { font-size: 12.5px; padding: 8px 15px; }
   .project-grid { grid-template-columns: 1fr; }
   .scene-title { font-size: clamp(26px, 8vw, 34px); }
   /* 小屏过渡带更短（88% 起收） */
@@ -1290,7 +1374,7 @@ body.perf-lite .footer-bar {
   }
 
   /* 移动端背板模糊降幅：柔和渐变背景下观感几乎不变，滚动重算省约 40% */
-  .glass-panel, .glass-chip, .glass-control, .modal-card {
+  .glass-panel, .glass-chip, .glass-control {
     -webkit-backdrop-filter: blur(16px) saturate(165%);
     backdrop-filter: blur(16px) saturate(165%);
   }
