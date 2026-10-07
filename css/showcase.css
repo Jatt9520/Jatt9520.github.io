@@ -315,6 +315,14 @@ body.dark .mini-btn[aria-pressed="true"] { background-color: rgba(46, 111, 117, 
   .m-group { transition: none; }
 }
 @media (max-width: 760px) {
+  /* 手机端炫技区回归文档流：定高内滚 + 页面吸附 proximity 会形成
+     嵌套滚动陷阱（内滚抢滚动，页面与炫技区「接不上、可乱滑」）。
+     内容自然撑高跟页面一起滚，单一滚动上下文才跟手 */
+  .s-showcase {
+    height: auto;
+    min-height: 100svh;
+    overflow-y: visible;
+  }
   .show-grid { gap: 16px; }
   .show-card { padding: 18px 16px 15px; }
   .show-sub { font-size: 12.5px; letter-spacing: 0.08em; }
