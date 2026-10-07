@@ -18,7 +18,6 @@ const CONFIG = {
     name: '跨世代',
     motto: '求是奋进',
     tagline: '个人创作者',
-    scrollHint: '向下滑动 · 继续探索',
     heroImage: './assets/hero.jpg',      // 首屏风景（Unsplash 免费授权，可随时替换）
     avatarImage: './assets/avatar.jpg',  // 玻璃球内的极简海景（同图裁剪）
     /* 点击头像丝滑展开的自我介绍 */

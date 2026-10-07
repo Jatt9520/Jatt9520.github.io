@@ -100,7 +100,6 @@
 
     byId('hero-name').textContent = C.hero.name;
     byId('hero-motto').textContent = C.hero.motto;
-    byId('scroll-hint-text').textContent = C.hero.scrollHint;
 
     byId('about-kicker').textContent = C.hero.about.kicker;
     byId('about-title').textContent = C.hero.about.title;
@@ -753,18 +752,18 @@
       return a;
     });
 
-    /* 几何：半径随珠径缩放；转速要肉眼可感（一圈 5~10s，一圈 15s+ 等于静止，
-       用户点名批评过）；一颗逆行制造层次，初始相位均匀铺开 */
+    /* 几何：圆轨道（不压扁）——半径恒在球外（球径 + 22px 起步），
+       卫星永不从球面上蹭过、也不会被球挡住消失（旧的椭圆+前后换位
+       被用户点名「很奇怪」）；转速一圈 5~10s 肉眼可感，一颗逆行 */
     const GEO = [
-      { k: 0.78, ph: 0.9, sp: 1.15 },
-      { k: 0.97, ph: 2.6, sp: -0.85 },
-      { k: 1.16, ph: 4.4, sp: 0.65 },
+      { pad: 22, ph: 0.9, sp: 1.15 },
+      { pad: 30, ph: 2.6, sp: -0.85 },
+      { pad: 38, ph: 4.4, sp: 0.65 },
     ];
-    const TILT = 0.5;                 // 纵轴压扁 = 轨道面倾斜的透视
     let radii = [];
     function measure() {
       const ballR = (anchor.offsetWidth || 74) / 2;
-      radii = GEO.map((g) => ballR * g.k + 18);   // 略离球壳，不贴边
+      radii = GEO.map((g) => ballR + g.pad);
     }
     measure();
 
@@ -789,32 +788,37 @@
     const phases = GEO.map((g) => g.ph);
     let raf = 0;
     let lastT = 0;
-    function place(moon, i, cx, cy, front) {
-      const a = phases[i];
-      const x = Math.cos(a) * radii[i];
-      const y = Math.sin(a) * radii[i] * TILT;
-      moon.style.transform = 'translate(' + (cx + x).toFixed(1) + 'px,' + (cy + y).toFixed(1) +
-        'px) scale(' + (front ? 1 : 0.78).toFixed(3) + ')';
-      moon.style.zIndex = front ? '853' : '845';          // 珠子锚点是 850：前后换位
-      moon.style.filter = front ? '' : 'brightness(0.6) saturate(0.8)';
+    function ringFit(bx, by) {
+      // 环心恒锁球心（同心=不奇怪）；出屏问题用「按轴挤压椭圆」解决，
+      // 不再钳制环心——钳了环心和球心脱钩，卫星到球的距离忽近忽远
+      let kx = 1, ky = 1;
+      for (let i = 0; i < moons.length; i++) {
+        kx = Math.min(kx, (bx - 20) / radii[i], (window.innerWidth - 20 - bx) / radii[i]);
+        ky = Math.min(ky, (by - 20) / radii[i], (window.innerHeight - 20 - by) / radii[i]);
+      }
+      return { kx: Math.max(kx, 0.4), ky: Math.max(ky, 0.35) };
     }
-    function orbitCenter() {
-      const ar = anchor.getBoundingClientRect();
-      const maxRX = Math.max(...radii) + 20;
-      const maxRY = Math.max(...radii) * TILT + 20;
-      return {
-        x: clamp(ar.left + ar.width / 2, maxRX, window.innerWidth - maxRX),
-        y: clamp(ar.top + ar.height / 2, maxRY, window.innerHeight - maxRY),
-        bx: ar.left + ar.width / 2,            // 球心原位（不 clamp）：遮挡检测用
-        by: ar.top + ar.height / 2,
-        br: ar.width / 2,
-      };
+    function place(moon, i, bx, by, kx, ky) {
+      const a = phases[i];
+      const x = Math.cos(a) * radii[i] * kx;
+      const y = Math.sin(a) * radii[i] * ky;
+      const d = Math.hypot(x, y);
+      const ballR = radii[i] - GEO[i].pad;   // 球半径（由轨道反推，免再量）
+      const behind = d < ballR + 16;         // 与球盘重叠：绕到球背后被挡住
+      moon.style.transform = 'translate(' + (bx + x).toFixed(1) + 'px,' + (by + y).toFixed(1) +
+        'px) scale(' + (behind ? 0.8 : 1).toFixed(3) + ')';
+      moon.style.zIndex = behind ? '845' : '853';
+      moon.style.filter = behind ? 'brightness(0.55) saturate(0.8)'
+        : 'brightness(' + (0.9 + 0.1 * ((Math.sin(a) + 1) / 2)).toFixed(3) + ')';
+      moon.style.pointerEvents = behind ? 'none' : 'auto';   // 球后不截胡点击
     }
     function settle() {     // 静态布局（REDUCED / perf-lite）：三颗摆开仍可点
-      const c = orbitCenter();
+      const ar = anchor.getBoundingClientRect();
+      const bx = ar.left + ar.width / 2, by = ar.top + ar.height / 2;
+      const f = ringFit(bx, by);
       for (let i = 0; i < moons.length; i++) {
         phases[i] = GEO[i].ph;
-        place(moons[i], i, c.x, c.y, Math.sin(phases[i]) > 0);
+        place(moons[i], i, bx, by, f.kx, f.ky);
       }
     }
     function frame(now) {
@@ -825,16 +829,12 @@
         settle();
         return;
       }
-      const c = orbitCenter();
+      const ar = anchor.getBoundingClientRect();
+      const bx = ar.left + ar.width / 2, by = ar.top + ar.height / 2;
+      const f = ringFit(bx, by);
       for (let i = 0; i < moons.length; i++) {
         phases[i] += (GEO[i].sp + boost * Math.sign(GEO[i].sp)) * dt / 1000;
-        place(moons[i], i, c.x, c.y, Math.sin(phases[i]) > 0);
-        // 掠过球面的前排卫星让出指针：34px 的链接珠压在球心上，
-        // 会把用户对珠子的点击/抓取整个截走（「只能拖一次」的帮凶）
-        const overBall = Math.sin(phases[i]) > 0 &&
-          Math.hypot(c.x + Math.cos(phases[i]) * radii[i] - c.bx,
-                     c.y + Math.sin(phases[i]) * radii[i] * TILT - c.by) < c.br + 16;
-        moons[i].style.pointerEvents = overBall ? 'none' : 'auto';
+        place(moons[i], i, bx, by, f.kx, f.ky);
       }
       boost *= Math.exp(-dt / 600);          // 摩擦衰减：甩劲 ~1.5s 溜回常速
       raf = requestAnimationFrame(frame);
@@ -895,11 +895,7 @@
         localStorage.setItem('dock_hint_shown', '1');
         setTimeout(() => {
           dock.classList.add('dock-hint');
-          document.body.classList.add('dock-hint-on');     // 滚动提示暂避 3s
-          setTimeout(() => {
-            dock.classList.remove('dock-hint');
-            document.body.classList.remove('dock-hint-on');
-          }, 3200);
+          setTimeout(() => dock.classList.remove('dock-hint'), 3200);
         }, 2600);
       }
     } catch (e) { /* 忽略 */ }
@@ -927,13 +923,6 @@
     const want = screenId === 's-hero' || screenId === '' ? 'top' : screenId;
     dock.querySelectorAll('.dock-item').forEach((el) => {
       el.classList.toggle('active', el.dataset.go === want);
-    });
-  }
-
-  /* ================= 滚动提示 ================= */
-  function initScrollHint() {
-    byId('scroll-hint').addEventListener('click', () => {
-      byId('s-creation').scrollIntoView({ behavior: REDUCED ? 'auto' : 'smooth' });
     });
   }
 
@@ -974,10 +963,7 @@
           setTimeout(tick, 110 + Math.random() * 80);   // 手打节奏：不是机械节拍
         } else {
           caret.classList.add('off');
-          setTimeout(() => {
-            caret.remove();
-            line.classList.add('done');                 // 收笔：一道光泽扫过词面
-          }, 600);
+          setTimeout(() => caret.remove(), 600);
         }
       };
       tick();
@@ -1253,7 +1239,6 @@
   initAvatar();
   initReveal();
   initProjects();
-  initScrollHint();
   initWelcomeType();
   initHashNav();
   initOrbNav();
