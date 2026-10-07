@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-06T10:16:18Z",
+  "generatedAt": "2026-10-07T10:14:40Z",
   "repos": [
     {
       "name": "cat-accounting-app",
@@ -36,7 +36,7 @@
     {
       "name": "video-spider-installer",
       "html_url": "https://github.com/Jatt9520/video-spider-installer",
-      "description": "Video Spider 一键安装脚本 v3.3 (fixed: block parsing crash, GBK encoding, silent window close)",
+      "description": "Video Spider 一键安装脚本 v3.3（修复：括号块解析崩溃、GBK 编码、窗口静默关闭）",
       "language": "Batchfile",
       "stargazers_count": 1,
       "pushed_at": "2026-08-09T15:39:31Z"
